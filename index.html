@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schaerer Coffee Art Touch - Config Tester</title>
+<style>
+:root {
+  --bg: #1a1a2e; --panel: #16213e; --accent: #4cc9f0; --warm: #d4a574;
+  --brown: #3b2417; --brown-light: #4a3228; --text: #e0e0e0; --muted: #888;
+  --green: #4ade80; --red: #f87171;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; min-height: 100vh; }
+
+/* Header */
+header { text-align: center; padding: 20px 20px 10px; }
+header h1 { color: var(--accent); font-size: 1.6em; margin-bottom: 2px; }
+header p { color: var(--muted); font-size: 0.85em; }
+
+/* Upload area */
+.upload-zone {
+  max-width: 700px; margin: 15px auto; padding: 30px; border: 2px dashed #3a4a6e;
+  border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s;
+  background: var(--panel);
+}
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: #1a2a4e; }
+.upload-zone h2 { color: var(--accent); font-size: 1.1em; margin-bottom: 8px; }
+.upload-zone p { color: var(--muted); font-size: 0.85em; margin-bottom: 5px; }
+.upload-zone .or { color: #555; margin: 10px 0; font-size: 0.8em; }
+.upload-zone input[type=file] { display: none; }
+.upload-btn { background: var(--accent); color: #000; border: none; padding: 8px 22px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; }
+.upload-btn:hover { opacity: 0.85; }
+.file-types { display: flex; gap: 15px; justify-content: center; margin-top: 12px; }
+.file-type { background: rgba(76,201,240,0.1); padding: 4px 12px; border-radius: 4px; font-size: 0.78em; color: var(--accent); }
+
+/* Loaded configs bar */
+.configs-bar { max-width: 900px; margin: 10px auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px; }
+.configs-bar label { color: var(--muted); font-size: 0.85em; white-space: nowrap; }
+.config-chip {
+  background: var(--panel); border: 1px solid #3a4a6e; padding: 5px 14px; border-radius: 20px;
+  font-size: 0.82em; cursor: pointer; transition: all 0.15s; color: var(--text);
+}
+.config-chip:hover { border-color: var(--accent); }
+.config-chip.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: bold; }
+.config-chip .x { margin-left: 6px; opacity: 0.6; }
+.config-chip .x:hover { opacity: 1; color: var(--red); }
+
+/* Main layout */
+.main { display: flex; gap: 20px; max-width: 1100px; margin: 15px auto; padding: 0 20px; flex-wrap: wrap; justify-content: center; }
+
+/* Machine frame */
+.machine-wrap { flex-shrink: 0; }
+.machine-frame { background: #2a2a2a; border-radius: 16px; padding: 10px; box-shadow: 0 0 20px rgba(76,201,240,0.1); }
+.machine-label { text-align: center; color: #444; font-size: 0.65em; margin-top: 5px; letter-spacing: 2px; text-transform: uppercase; }
+.screen { width: 384px; height: 640px; background: var(--brown); border-radius: 5px; overflow: hidden; position: relative; user-select: none; }
+
+/* Navigation dots */
+.nav-row { display: flex; gap: 6px; justify-content: center; margin-top: 8px; align-items: center; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #333; }
+.dot.on { background: var(--accent); }
+.nav-label { color: #555; font-size: 0.75em; margin-left: 8px; }
+
+/* Screen states */
+.scr-start { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: var(--brown); }
+.scr-start .touch-msg { color: var(--accent); font-size: 22px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; animation: pulse 2.5s ease-in-out infinite; }
+.scr-start .sub-msg { color: var(--warm); font-size: 13px; margin-top: 8px; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+.scr-groups { padding: 12px; display: flex; flex-direction: column; height: 100%; }
+.scr-header { text-align: center; color: #5bb8d4; font-size: 16px; font-weight: bold; letter-spacing: 2px; padding: 8px 0; text-transform: uppercase; }
+.grp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1; align-content: start; }
+.grp-btn {
+  border-radius: 6px; overflow: hidden; cursor: pointer; background: var(--brown-light);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 130px; transition: transform 0.12s, box-shadow 0.12s; padding: 10px;
+}
+.grp-btn:hover { transform: scale(1.03); box-shadow: 0 0 10px rgba(76,201,240,0.25); }
+.grp-btn img { max-width: 100%; max-height: 150px; object-fit: contain; border-radius: 4px; }
+.grp-btn .grp-name { color: var(--accent); font-size: 14px; font-weight: bold; text-align: center; text-transform: uppercase; letter-spacing: 1px; }
+.grp-btn .grp-img-name { color: #666; font-size: 9px; margin-top: 3px; word-break: break-all; }
+
+.scr-bev { padding: 10px; display: flex; flex-direction: column; height: 100%; }
+.bev-title { text-align: center; color: var(--warm); font-size: 20px; font-weight: bold; padding: 2px 0 8px; }
+.bev-grid { display: flex; flex-direction: column; gap: 6px; flex: 1; padding: 0 10px; }
+.bev-btn {
+  border-radius: 6px; cursor: pointer; background: var(--brown-light);
+  display: flex; align-items: center; gap: 12px; padding: 8px 12px;
+  flex: 1; min-height: 50px; transition: transform 0.12s, box-shadow 0.12s;
+}
+.bev-btn:hover { transform: scale(1.02); box-shadow: 0 0 10px rgba(76,201,240,0.25); }
+.bev-btn img { height: 60px; max-width: 120px; object-fit: contain; border-radius: 4px; }
+.bev-btn .bev-info { flex: 1; }
+.bev-btn .bev-name { color: var(--text); font-size: 13px; font-weight: bold; }
+.bev-btn .bev-pic { color: #666; font-size: 9px; margin-top: 2px; word-break: break-all; }
+.bev-btn .cup-icon { font-size: 28px; opacity: 0.7; }
+
+.scr-fill { padding: 15px; display: flex; flex-direction: column; height: 100%; align-items: center; justify-content: center; }
+.fill-opts { display: flex; flex-direction: column; gap: 15px; width: 100%; padding: 0 20px; }
+.fill-btn {
+  border-radius: 6px; cursor: pointer; background: var(--brown-light);
+  display: flex; align-items: center; justify-content: center; height: 150px;
+  transition: transform 0.12s; padding: 10px;
+}
+.fill-btn:hover { transform: scale(1.03); }
+.fill-btn img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.fill-btn .fill-text { color: var(--accent); font-size: 16px; font-weight: bold; text-align: center; text-transform: uppercase; }
+
+.scr-disp { display: flex; flex-direction: column; height: 100%; align-items: center; justify-content: center; }
+.brew-anim { color: var(--accent); font-size: 22px; font-weight: bold; letter-spacing: 2px; animation: pulse 2s ease-in-out infinite; text-transform: uppercase; }
+.brew-product { color: var(--warm); font-size: 15px; margin: 15px 0; }
+.brew-bar { width: 220px; height: 6px; background: #5a3a28; border-radius: 3px; overflow: hidden; }
+.brew-fill { height: 100%; background: var(--accent); border-radius: 3px; animation: brewfill 4s ease-in-out forwards; }
+@keyframes brewfill { 0%{width:0}100%{width:100%} }
+
+.scr-done { display: flex; flex-direction: column; height: 100%; align-items: center; justify-content: center; cursor: pointer; }
+.scr-done img { max-width: 80%; max-height: 55%; object-fit: contain; }
+.done-text { color: var(--accent); font-size: 18px; font-weight: bold; margin-top: 15px; letter-spacing: 2px; text-transform: uppercase; }
+
+.back-btn {
+  position: absolute; bottom: 10px; left: 10px; background: rgba(76,201,240,0.15);
+  border: 1px solid var(--accent); color: var(--accent); padding: 5px 14px;
+  border-radius: 5px; cursor: pointer; font-size: 12px; z-index: 10;
+}
+.back-btn:hover { background: rgba(76,201,240,0.3); }
+
+/* Panel */
+.panel { flex: 1; min-width: 300px; max-width: 450px; }
+.panel-section {
+  background: var(--panel); border-radius: 10px; padding: 14px; margin-bottom: 12px;
+}
+.panel-section h3 { color: var(--accent); font-size: 0.95em; margin-bottom: 8px; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.75em; }
+.tbl th { text-align: left; color: var(--accent); padding: 3px 5px; border-bottom: 1px solid #2a3a5e; }
+.tbl td { padding: 3px 5px; border-bottom: 1px solid #1a2a4e; }
+.sl { color: #888; font-family: monospace; }
+.pn { color: var(--warm); font-size: 0.88em; word-break: break-all; }
+.ok { color: var(--green); }
+.bad { color: var(--red); }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.setting { background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 4px; }
+.setting .lbl { color: var(--muted); font-size: 0.75em; }
+.setting .val { color: var(--accent); font-weight: bold; font-size: 0.9em; }
+
+/* Cup size placeholders */
+.cup-placeholder {
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  background: rgba(76,201,240,0.08); border: 1px solid rgba(76,201,240,0.2);
+  border-radius: 6px; padding: 8px; min-height: 60px; width: 100%;
+}
+.cup-placeholder .size { color: var(--accent); font-size: 20px; font-weight: bold; }
+.cup-placeholder .filename { color: #555; font-size: 8px; margin-top: 2px; }
+
+/* Iced placeholder */
+.iced-placeholder {
+  background: rgba(100,200,255,0.1); border: 1px solid rgba(100,200,255,0.2);
+}
+.iced-placeholder .size { color: #88d4f0; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 40px 20px; }
+.empty-state h2 { color: var(--muted); font-size: 1.1em; margin-bottom: 8px; }
+.empty-state p { color: #555; font-size: 0.85em; }
+
+/* Footer */
+footer { text-align: center; padding: 20px; color: #333; font-size: 0.7em; }
+footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Schaerer Coffee Art Touch</h1>
+  <p>Configuration Tester - Beverage Service Group</p>
+</header>
+
+<div class="upload-zone" id="uploadZone">
+  <h2>Upload Configuration</h2>
+  <p>Drag & drop .ini config files here, or upload a full config folder (with SelfMode images)</p>
+  <div class="or">- or -</div>
+  <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose Files</button>
+  <input type="file" id="fileInput" multiple accept=".ini,.png,.PNG,.jpg,.jpeg" onchange="handleFiles(this.files)">
+  <div class="file-types">
+    <span class="file-type">.ini config</span>
+    <span class="file-type">.png images</span>
+    <span class="file-type">folder upload</span>
+  </div>
+</div>
+
+<div class="configs-bar" id="configsBar" style="display:none">
+  <label>Configs:</label>
+</div>
+
+<div class="main" id="mainArea" style="display:none">
+  <div class="machine-wrap">
+    <div class="machine-frame">
+      <div class="screen" id="screen"></div>
+      <div class="machine-label">Schaerer Coffee Art Touch</div>
+    </div>
+    <div class="nav-row" id="navRow"></div>
+  </div>
+  <div class="panel" id="panel"></div>
+</div>
+
+<div class="empty-state" id="emptyState">
+  <h2>No configs loaded</h2>
+  <p>Upload a .ini file above to preview how it will look on the machine touchscreen.</p>
+  <p style="margin-top:8px;color:#444">Supports both 3-per-group (16/20/24oz) and 4-per-group (12/16/20/24oz) layouts.</p>
+</div>
+
+<footer>
+  Schaerer Config Tester &middot; <a href="https://github.com/grimeschad-cag" target="_blank">BSG Tools</a>
+</footer>
+
+<script>
+/* ===== State ===== */
+let configs = [];       // {name, config, images:{}}
+let activeIdx = -1;
+let scr = 'start';
+let selGrp = null;
+let selProd = null;
+let timers = [];
+
+/* ===== INI Parser ===== */
+function parseIni(text, filename) {
+  const c = {};
+  const get = (pat) => { const m = text.match(pat); return m ? m[1].trim() : null; };
+  const getAll = (pat) => { const r = []; let m; const re = new RegExp(pat, 'g'); while(m=re.exec(text)) r.push(m); return r; };
+
+  c.ppg = parseInt(get(/ProductsPerGroup=(\d+)/)) || 3;
+  c.ap = parseInt(get(/ActivatedProducts=(\d+)/)) || 4095;
+  c.fill_level_visible = (get(/FillLevelScreenVisible=(\w+)/) || '').toLowerCase() === 'true';
+  c.fill_no_room = get(/FillLevelNoRoomPic=(.+)/) || '';
+  c.fill_leave_room = get(/FillLevelLeaveRoomPic=(.+)/) || '';
+  c.take_cup_pic = get(/TakeTheCupPic=(.+)/) || '';
+  c.screensaver = get(/ScreenSaverName=(.+)/) || '';
+  c.sca_version = get(/SCAversion=(.+)/) || '';
+
+  c.groups = {};
+  getAll(/Group\\(\d+)\\Visible=(\w+)/).forEach(m => {
+    const id = m[1]; c.groups[id] = c.groups[id] || {}; c.groups[id].visible = m[2].trim().toLowerCase() === 'true';
+  });
+  getAll(/Group\\(\d+)\\Picture=(.+)/).forEach(m => {
+    const id = m[1]; c.groups[id] = c.groups[id] || {}; c.groups[id].picture = m[2].trim();
+  });
+  getAll(/en\\GroupNames\\(\d+)\\Name=(.+)/).forEach(m => {
+    const id = m[1]; c.groups[id] = c.groups[id] || {}; c.groups[id].name = m[2].trim();
+  });
+
+  c.names = {};
+  getAll(/en\\ProductNames\\(\d+)\\Name=(.+)/).forEach(m => { c.names[m[1]] = m[2].trim(); });
+
+  c.pics = {};
+  getAll(/ProductPic\\(\d+)\\Button=(.+)/).forEach(m => { c.pics[m[1]] = m[2].trim(); });
+
+  c.dispensing = {};
+  getAll(/DispensingPic\\(\d+)\\Button=(.+)/).forEach(m => { c.dispensing[m[1]] = m[2].trim(); });
+
+  return { name: filename.replace('.ini',''), config: c, images: {} };
+}
+
+/* ===== File Handling ===== */
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('dragover');
+  if (e.dataTransfer.items) {
+    const items = [...e.dataTransfer.items];
+    const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    if (entries.some(e => e.isDirectory)) {
+      processEntries(entries);
+      return;
+    }
+  }
+  handleFiles(e.dataTransfer.files);
+});
+
+function handleFiles(files) {
+  const fileArr = [...files];
+  // Group .ini files and image files
+  const iniFiles = fileArr.filter(f => f.name.toLowerCase().endsWith('.ini'));
+  const imgFiles = fileArr.filter(f => /\.(png|jpg|jpeg)$/i.test(f.name));
+
+  iniFiles.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const cfg = parseIni(e.target.result, f.name);
+      // Associate any uploaded images
+      imgFiles.forEach(img => {
+        const r2 = new FileReader();
+        r2.onload = ev => {
+          cfg.images[img.name] = ev.target.result;
+          cfg.images[img.name.toLowerCase()] = ev.target.result;
+          if (activeIdx >= 0) render();
+        };
+        r2.readAsDataURL(img);
+      });
+      addConfig(cfg);
+    };
+    reader.readAsText(f);
+  });
+}
+
+async function processEntries(entries) {
+  const allFiles = [];
+  async function readDir(entry, path) {
+    if (entry.isFile) {
+      const file = await new Promise(r => entry.file(r));
+      allFiles.push({ file, path: path + file.name });
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const entries = await new Promise(r => reader.readEntries(r));
+      for (const e of entries) await readDir(e, path + entry.name + '/');
+    }
+  }
+  for (const entry of entries) await readDir(entry, '');
+
+  // Find .ini files
+  const iniFiles = allFiles.filter(f => f.file.name.toLowerCase().endsWith('.ini'));
+  const imgFiles = allFiles.filter(f => /\.(png|jpg|jpeg)$/i.test(f.file.name));
+
+  for (const ini of iniFiles) {
+    const text = await ini.file.text();
+    const cfg = parseIni(text, ini.file.name);
+
+    // Load images
+    for (const img of imgFiles) {
+      const data = await readFileAsDataURL(img.file);
+      cfg.images[img.file.name] = data;
+      cfg.images[img.file.name.toLowerCase()] = data;
+    }
+    addConfig(cfg);
+  }
+}
+
+function readFileAsDataURL(file) {
+  return new Promise(r => { const rd = new FileReader(); rd.onload = e => r(e.target.result); rd.readAsDataURL(file); });
+}
+
+/* ===== Config Management ===== */
+function addConfig(cfg) {
+  configs.push(cfg);
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('mainArea').style.display = 'flex';
+  document.getElementById('configsBar').style.display = 'flex';
+  renderConfigBar();
+  selectConfig(configs.length - 1);
+}
+
+function removeConfig(idx) {
+  configs.splice(idx, 1);
+  if (configs.length === 0) {
+    activeIdx = -1;
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('mainArea').style.display = 'none';
+    document.getElementById('configsBar').style.display = 'none';
+  } else {
+    selectConfig(Math.min(idx, configs.length - 1));
+  }
+  renderConfigBar();
+}
+
+function selectConfig(idx) {
+  activeIdx = idx;
+  scr = 'start'; selGrp = null; selProd = null;
+  renderConfigBar();
+  buildPanel();
+  render();
+}
+
+function renderConfigBar() {
+  const bar = document.getElementById('configsBar');
+  let h = '<label>Configs:</label>';
+  configs.forEach((c, i) => {
+    const cls = i === activeIdx ? 'config-chip active' : 'config-chip';
+    h += '<span class="' + cls + '" onclick="selectConfig(' + i + ')">' + c.name +
+         ' <span class="x" onclick="event.stopPropagation();removeConfig(' + i + ')">&#10005;</span></span>';
+  });
+  bar.innerHTML = h;
+}
+
+/* ===== Panel ===== */
+function buildPanel() {
+  if (activeIdx < 0) return;
+  const c = configs[activeIdx].config;
+  const ppg = c.ppg;
+  const ac = c.ap.toString(2).split('').filter(b => b === '1').length;
+  const vg = Object.values(c.groups).filter(g => g.visible).length;
+
+  let h = '<div class="panel-section"><h3>Settings</h3><div class="settings-grid">';
+  h += setting('PPG', c.ppg);
+  h += setting('Active Products', ac);
+  h += setting('Visible Groups', vg);
+  h += setting('Fill Level', c.fill_level_visible ? 'ON' : 'OFF');
+  h += setting('SCA Version', c.sca_version || '—');
+  h += setting('Iced Group', c.groups['4']?.visible ? 'ON' : 'OFF');
+  h += '</div></div>';
+
+  h += '<div class="panel-section"><h3>Product Map</h3><table class="tbl"><tr><th>#</th><th>Name</th><th>Picture</th></tr>';
+  const max = ppg * 3 + 3;
+  for (let i = 1; i <= max; i++) {
+    const nm = c.names[String(i)] || '—';
+    const pic = c.pics[String(i)] || '—';
+    const iced = i > ppg * 3;
+    const grp = iced ? 'Ice' : 'G' + Math.ceil(i / ppg);
+
+    let cls = 'pn';
+    if (pic !== '—' && pic !== '-----') {
+      const m = nm.match(/(\d+)oz/i);
+      const sz = m ? m[1] + 'oz' : '';
+      if (sz && !iced) cls = pic.toLowerCase().includes(sz.toLowerCase()) ? 'pn ok' : 'pn bad';
+      else if (iced && pic.toLowerCase().includes('iced')) cls = 'pn ok';
+    }
+    h += '<tr><td class="sl">' + i + ' <span style="color:#444">' + grp + '</span></td><td>' + nm + '</td><td class="' + cls + '">' + pic + '</td></tr>';
+  }
+  h += '</table></div>';
+
+  // Groups detail
+  h += '<div class="panel-section"><h3>Groups</h3><table class="tbl"><tr><th>#</th><th>Name</th><th>Visible</th><th>Picture</th></tr>';
+  for (let i = 1; i <= 12; i++) {
+    const g = c.groups[String(i)];
+    if (!g) continue;
+    h += '<tr><td class="sl">' + i + '</td><td>' + (g.name || '—') + '</td><td>' +
+         (g.visible ? '<span style="color:var(--green)">Yes</span>' : '<span style="color:#555">No</span>') +
+         '</td><td class="pn">' + (g.picture || '—') + '</td></tr>';
+  }
+  h += '</table></div>';
+
+  document.getElementById('panel').innerHTML = h;
+}
+
+function setting(label, value) {
+  return '<div class="setting"><div class="lbl">' + label + '</div><div class="val">' + value + '</div></div>';
+}
+
+/* ===== Image Resolver ===== */
+function getImg(filename) {
+  if (!filename || filename === '-----' || filename.includes('01_SlideShow')) return null;
+  const imgs = configs[activeIdx].images;
+  return imgs[filename] || imgs[filename.toLowerCase()] || null;
+}
+
+function imgTag(filename, cls) {
+  const src = getImg(filename);
+  if (src) return '<img src="' + src + '" class="' + (cls || '') + '">';
+  return null;
+}
+
+function cupPlaceholder(name, filename, isIced) {
+  const sz = (name.match(/(\d+)\s*oz/i) || [])[1] || '';
+  const extra = isIced ? ' iced-placeholder' : '';
+  return '<div class="cup-placeholder' + extra + '"><div class="size">' +
+    (isIced ? name : (sz ? sz + ' oz' : name)) +
+    '</div><div class="filename">' + (filename || '') + '</div></div>';
+}
+
+/* ===== Renderer ===== */
+function render() {
+  timers.forEach(clearTimeout); timers = [];
+  if (activeIdx < 0) return;
+  const S = document.getElementById('screen');
+  const c = configs[activeIdx].config;
+
+  const steps = ['start','groups','beverages','fill','dispensing','done'];
+  const labels = ['Start','Select Coffee','Select Size','Fill Level','Brewing','Enjoy'];
+  const si = steps.indexOf(scr);
+  document.getElementById('navRow').innerHTML =
+    steps.map((_,i) => '<div class="dot' + (i===si?' on':'') + '"></div>').join('') +
+    '<span class="nav-label">' + (labels[si]||'') + '</span>';
+
+  if (scr === 'start') {
+    S.innerHTML = '<div class="scr-start" onclick="goGroups()"><div class="touch-msg">Touch Here to Begin</div><div class="sub-msg">' + configs[activeIdx].name + '</div></div>';
+  }
+  else if (scr === 'groups') {
+    const gs = Object.entries(c.groups).filter(([,v]) => v.visible).sort((a,b) => +a[0] - +b[0]);
+    let h = '<div class="scr-groups"><div class="scr-header">Select Your Coffee</div><div class="grp-grid">';
+    for (const [gid, g] of gs) {
+      const pic = g.picture || '';
+      const im = imgTag(pic) || '';
+      h += '<div class="grp-btn" onclick="pickGroup(' + gid + ')">' +
+           (im || '<div class="grp-name">' + (g.name || 'Group ' + gid) + '</div>') +
+           (im ? '<div class="grp-name" style="margin-top:4px;font-size:11px">' + (g.name||'') + '</div>' : '') +
+           '<div class="grp-img-name">' + pic + '</div></div>';
+    }
+    h += '</div></div>'; S.innerHTML = h;
+  }
+  else if (scr === 'beverages') {
+    const ppg = c.ppg, gid = selGrp, gn = (c.groups[String(gid)]||{}).name || 'Group '+gid;
+    const isIced = gid === 4;
+    let slots = [];
+    if (isIced) { const st = ppg*3+1; for(let i=0;i<3;i++) slots.push(st+i); }
+    else { const st = (gid-1)*ppg+1; for(let i=0;i<ppg;i++) slots.push(st+i); }
+
+    let h = '<div class="scr-bev"><div class="scr-header">Select Your Size</div><div class="bev-title">' + gn + '</div><div class="bev-grid">';
+    for (const sl of slots) {
+      const nm = c.names[String(sl)] || 'Product ' + sl;
+      const pic = c.pics[String(sl)] || '';
+      const im = imgTag(pic);
+      h += '<div class="bev-btn" onclick="pickBev(' + sl + ')">' +
+           (im ? '<div>' + im + '</div>' : '') +
+           '<div class="bev-info">' +
+           (im ? '' : cupPlaceholder(nm, pic, isIced)) +
+           '<div class="bev-name">' + nm + '</div>' +
+           '<div class="bev-pic">' + pic + '</div>' +
+           '</div></div>';
+    }
+    h += '</div></div><div class="back-btn" onclick="goGroups()">&#9664; Back</div>';
+    S.innerHTML = h;
+  }
+  else if (scr === 'fill') {
+    const pn = c.names[String(selProd)] || '';
+    const lrI = imgTag(c.fill_leave_room);
+    const nrI = imgTag(c.fill_no_room);
+    let h = '<div class="scr-fill"><div class="scr-header">' + pn + '</div><div class="fill-opts">';
+    h += '<div class="fill-btn" onclick="goDispense()">' + (lrI || '<div class="fill-text">Leave Room<br>for Cream</div>') + '</div>';
+    h += '<div class="fill-btn" onclick="goDispense()">' + (nrI || '<div class="fill-text">No Room<br>(Fill Full)</div>') + '</div>';
+    h += '</div></div><div class="back-btn" onclick="goBev()">&#9664; Back</div>';
+    S.innerHTML = h;
+  }
+  else if (scr === 'dispensing') {
+    const pn = c.names[String(selProd)] || '';
+    S.innerHTML = '<div class="scr-disp"><div class="brew-anim">Brewing...</div><div class="brew-product">' + pn + '</div><div class="brew-bar"><div class="brew-fill"></div></div></div>';
+    timers.push(setTimeout(() => { scr = 'done'; render(); }, 4000));
+  }
+  else if (scr === 'done') {
+    const tc = imgTag(c.take_cup_pic);
+    S.innerHTML = '<div class="scr-done" onclick="goStart()">' + (tc || '') + '<div class="done-text">Take Your Cup</div></div>';
+    timers.push(setTimeout(goStart, 5000));
+  }
+}
+
+function goStart() { scr='start'; selGrp=null; selProd=null; render(); }
+function goGroups() { scr='groups'; render(); }
+function goBev() { scr='beverages'; render(); }
+function pickGroup(g) { selGrp=g; scr='beverages'; render(); }
+function pickBev(s) { selProd=s; scr=configs[activeIdx].config.fill_level_visible?'fill':'dispensing'; render(); }
+function goDispense() { scr='dispensing'; render(); }
+</script>
+</body>
+</html>
