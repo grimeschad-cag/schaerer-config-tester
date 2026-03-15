@@ -255,6 +255,7 @@ let timers = [];
 let replaceTarget = null; // {type:'group'|'product'|'fill'|'takecup'|'slideshow_start'|'slideshow_disp', id, filename}
 let ssSlideIdx = 0;  // current slideshow index for start screen
 let dispSlideIdx = 0; // current slideshow index for dispensing screen
+let dispSlideTimer = null; // separate timer for dispensing slideshow so it doesn't interfere with brew timer
 
 /* ===== INI Parser ===== */
 function parseIni(text, filename) {
@@ -858,6 +859,7 @@ function cupPlaceholder(name,fn,type) {
 /* ===== Renderer ===== */
 function render() {
   timers.forEach(clearTimeout); timers = [];
+  if (dispSlideTimer) { clearTimeout(dispSlideTimer); dispSlideTimer = null; }
   if(activeIdx<0) return;
   const S=document.getElementById('screen'), c=configs[activeIdx].config;
 
@@ -957,12 +959,13 @@ function render() {
       if (dispSlideIdx >= dSlides.length) dispSlideIdx = 0;
       const cur = dSlides[dispSlideIdx];
       dispImgHtml = '<div style="position:relative;max-width:80%;max-height:40%;margin-bottom:10px">' +
-        '<img src="'+cur.dataUrl+'" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:4px">' +
+        '<img src="'+cur.dataUrl+'" class="disp-slide-img" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:4px">' +
         '<span class="replace-overlay" onclick="event.stopPropagation();startReplace(\'slideshow_disp\','+dispSlideIdx+',\''+cur.name+'\')">REPLACE</span></div>' +
-        (dSlides.length > 1 ? '<div class="ss-dots" style="margin-bottom:8px">' + dSlides.map((s,i) => '<span class="ss-dot'+(i===dispSlideIdx?' active':'')+'" onclick="goSlide(\'disp\','+i+')"></span>').join('') + '</div>' : '') +
-        '<div class="ss-count" style="margin-bottom:6px">'+cur.name+' ('+(dispSlideIdx+1)+'/'+dSlides.length+')</div>';
+        (dSlides.length > 1 ? '<div class="ss-dots disp-slide-dots" style="margin-bottom:8px">' + dSlides.map((s,i) => '<span class="ss-dot'+(i===dispSlideIdx?' active':'')+'" onclick="goSlide(\'disp\','+i+')"></span>').join('') + '</div>' : '') +
+        '<div class="ss-count disp-slide-count" style="margin-bottom:6px">'+cur.name+' ('+(dispSlideIdx+1)+'/'+dSlides.length+')</div>';
+      // Use separate timer for dispensing slideshow so it doesn't clear the brew-done timer
       if (dSlides.length > 1) {
-        timers.push(setTimeout(() => { dispSlideIdx = (dispSlideIdx + 1) % dSlides.length; if (scr === 'dispensing') render(); }, 2000));
+        dispSlideTimer = setTimeout(advanceDispSlide, 2000);
       }
     } else {
       // Check for individual dispensing pic
@@ -1170,6 +1173,22 @@ function applySizeChange() {
   const oldPpg = c.ppg;
   const newPpg = newSizes.length;
 
+  // Snapshot old product pics by group and size BEFORE clearing
+  const oldPicsByGroup = {};
+  const oldDispByGroup = {};
+  for (let g = 0; g < 3; g++) {
+    oldPicsByGroup[g] = {};
+    oldDispByGroup[g] = {};
+    for (let s = 0; s < oldPpg; s++) {
+      const slot = g * oldPpg + s + 1;
+      const sz = oldSizes[s];
+      const pic = c.pics[String(slot)];
+      const disp = c.dispensing[String(slot)];
+      if (pic && pic !== '-----') oldPicsByGroup[g][sz] = pic;
+      if (disp) oldDispByGroup[g][sz] = disp;
+    }
+  }
+
   // Save old iced product data and recipes before reassignment
   const oldIcedStart = oldPpg * 3 + 1;
   cfg._oldIcedRecipes = [];
@@ -1203,8 +1222,9 @@ function applySizeChange() {
       const slot = g * newPpg + s + 1;
       const sz = newSizes[s];
       c.names[String(slot)] = sz + 'oz ' + gName;
-      c.pics[String(slot)] = sz + 'OZ.PNG';
-      c.dispensing[String(slot)] = '01_SlideShow';
+      // Reuse original pic filename if this size existed before, else use generic placeholder
+      c.pics[String(slot)] = oldPicsByGroup[g][sz] || (sz + 'OZ.PNG');
+      c.dispensing[String(slot)] = oldDispByGroup[g][sz] || '01_SlideShow';
     }
   }
 
@@ -1302,10 +1322,40 @@ function pickBev(s){selProd=s;dispSlideIdx=0;scr=configs[activeIdx].config.fill_
 function goDispense(){dispSlideIdx=0;scr='dispensing';render();}
 function pickHotWater(slot){selProd=slot;dispSlideIdx=0;scr='dispensing';render();}
 function goSlide(type, idx) {
-  timers.forEach(clearTimeout); timers = [];
-  if (type === 'start') { ssSlideIdx = idx; }
-  else if (type === 'disp') { dispSlideIdx = idx; }
-  render();
+  if (type === 'start') {
+    timers.forEach(clearTimeout); timers = [];
+    ssSlideIdx = idx;
+    render();
+  } else if (type === 'disp') {
+    if (dispSlideTimer) { clearTimeout(dispSlideTimer); dispSlideTimer = null; }
+    dispSlideIdx = idx;
+    advanceDispSlide(true); // true = immediate, don't increment
+  }
+}
+
+// DOM-only dispensing slideshow advance (doesn't clear brew timer)
+function advanceDispSlide(immediate) {
+  if (scr !== 'dispensing' || activeIdx < 0) return;
+  const dSlides = configs[activeIdx].slideshow.dispensing;
+  if (dSlides.length <= 1) return;
+  if (!immediate) dispSlideIdx = (dispSlideIdx + 1) % dSlides.length;
+  const cur = dSlides[dispSlideIdx];
+  // Update image
+  const imgEl = document.querySelector('.disp-slide-img');
+  if (imgEl) imgEl.src = cur.dataUrl;
+  // Update dots
+  document.querySelectorAll('.disp-slide-dots .ss-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === dispSlideIdx);
+    d.setAttribute('onclick', "goSlide('disp'," + i + ")");
+  });
+  // Update count text
+  const countEl = document.querySelector('.disp-slide-count');
+  if (countEl) countEl.textContent = cur.name + ' (' + (dispSlideIdx + 1) + '/' + dSlides.length + ')';
+  // Update replace overlay
+  const repEl = document.querySelector('.scr-disp .replace-overlay');
+  if (repEl) repEl.setAttribute('onclick', "event.stopPropagation();startReplace('slideshow_disp'," + dispSlideIdx + ",'" + cur.name + "')");
+  // Schedule next advance
+  dispSlideTimer = setTimeout(advanceDispSlide, 2000);
 }
 </script>
 </body>
