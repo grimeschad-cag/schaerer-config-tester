@@ -87,7 +87,7 @@ header p { color: var(--muted); font-size: 0.85em; }
 
 /* Replace overlay on images */
 .replace-overlay { position: absolute; top: 4px; right: 4px; background: rgba(76,201,240,0.85); color: #000; padding: 2px 7px; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer; z-index: 5; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
-.grp-btn:hover .replace-overlay, .bev-btn:hover .replace-overlay, .scr-start div:hover > .replace-overlay { opacity: 1; pointer-events: auto; }
+.grp-btn:hover .replace-overlay, .bev-btn:hover .replace-overlay, .scr-start div:hover > .replace-overlay, .ss-slideshow:hover .replace-overlay, .scr-disp div:hover > .replace-overlay { opacity: 1; pointer-events: auto; }
 
 .scr-bev { padding: 10px; display: flex; flex-direction: column; height: 100%; }
 .bev-title { text-align: center; color: var(--warm); font-size: 20px; font-weight: bold; padding: 2px 0 8px; }
@@ -368,22 +368,47 @@ function handleFiles(files) {
       function done() { pending--; if (pending <= 0) addConfig(cfg); }
 
       if (matchPpc) {
+        const ppcRel = (matchPpc.webkitRelativePath || '').replace(/\\/g, '/');
+        const ppcParts = ppcRel.split('/');
+        const ppcPath = ppcParts.length > 1 ? ppcParts.slice(1).join('/') : matchPpc.name;
         const r2 = new FileReader();
-        r2.onload = ev => { cfg.recipes = parsePpc(ev.target.result); cfg.rawFiles[matchPpc.name] = ev.target.result; done(); };
+        r2.onload = ev => { cfg.recipes = parsePpc(ev.target.result); cfg.rawFiles[ppcPath] = ev.target.result; done(); };
         r2.readAsArrayBuffer(matchPpc);
       }
       imgF.forEach(img => {
+        // Use webkitRelativePath for folder structure (available when using Upload Folder)
+        const relPath = (img.webkitRelativePath || '').replace(/\\/g, '/');
+        // Strip leading config folder name to get path relative to config root
+        const pathParts = relPath.split('/');
+        const innerPath = pathParts.length > 1 ? pathParts.slice(1).join('/') : img.name;
+
         const r3 = new FileReader();
-        r3.onload = ev => { cfg.images[img.name] = ev.target.result; cfg.images[img.name.toLowerCase()] = ev.target.result; done(); };
+        r3.onload = ev => {
+          const dataUrl = ev.target.result;
+          cfg.images[img.name] = dataUrl;
+          cfg.images[img.name.toLowerCase()] = dataUrl;
+
+          // Detect slideshow images by folder path
+          if (relPath.includes('01_StartScreen') && relPath.includes('01_SlideShow')) {
+            cfg.slideshow.startScreen.push({ name: img.name, dataUrl, path: innerPath });
+          } else if (relPath.includes('05_DispensingScreen') && relPath.includes('01_SlideShow')) {
+            cfg.slideshow.dispensing.push({ name: img.name, dataUrl, path: innerPath });
+          }
+
+          done();
+        };
         r3.readAsDataURL(img);
-        // Also store raw for download
+        // Also store raw for download with correct folder path
         const r4 = new FileReader();
-        r4.onload = ev => { cfg.rawFiles['SelfMode/' + img.name] = ev.target.result; };
+        r4.onload = ev => { cfg.rawFiles[innerPath] = ev.target.result; };
         r4.readAsArrayBuffer(img);
       });
       otherF.forEach(of2 => {
+        const relPath2 = (of2.webkitRelativePath || '').replace(/\\/g, '/');
+        const pathParts2 = relPath2.split('/');
+        const innerPath2 = pathParts2.length > 1 ? pathParts2.slice(1).join('/') : of2.name;
         const r5 = new FileReader();
-        r5.onload = ev => { cfg.rawFiles[of2.name] = ev.target.result; done(); };
+        r5.onload = ev => { cfg.rawFiles[innerPath2] = ev.target.result; done(); };
         r5.readAsArrayBuffer(of2);
       });
       done(); // for the ini itself
@@ -621,8 +646,11 @@ async function downloadConfig() {
     // Handle slideshow replacements (keyed as 'slideshow:type:filename')
     if (filename.startsWith('slideshow:') && rep.slidePath) {
       const raw = await rep.newFile.arrayBuffer();
-      // slidePath is the original path from processEntries, use it directly
-      root.file(rep.slidePath, raw);
+      // Clean the slidePath - strip leading config folder name if present
+      let sPath = rep.slidePath;
+      if (sPath.startsWith(folderName + '/')) sPath = sPath.slice(folderName.length + 1);
+      sPath = sPath.replace(/^\/+/, '');
+      root.file(sPath, raw);
       continue;
     }
     const raw = await rep.newFile.arrayBuffer();
