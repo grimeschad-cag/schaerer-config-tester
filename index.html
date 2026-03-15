@@ -148,6 +148,26 @@ header p { color: var(--muted); font-size: 0.85em; }
 .replace-btn:hover { background: rgba(76,201,240,0.3); }
 .replaced-tag { background: rgba(74,222,128,0.15); color: var(--green); padding: 1px 6px; border-radius: 3px; font-size: 0.7em; margin-left: 4px; }
 
+/* Cup Size Editor */
+.size-editor { display: flex; flex-direction: column; gap: 10px; }
+.size-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.size-row label { color: var(--muted); font-size: 0.82em; white-space: nowrap; min-width: 70px; }
+.size-toggle { display: flex; gap: 4px; }
+.sz-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #3a4a6e; background: rgba(0,0,0,0.2); color: var(--muted); cursor: pointer; font-size: 0.85em; font-weight: bold; transition: all 0.15s; min-width: 48px; text-align: center; }
+.sz-btn:hover { border-color: var(--accent); color: var(--accent); }
+.sz-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.sz-btn.active:hover { opacity: 0.85; }
+.sz-preview { color: #555; font-size: 0.78em; font-style: italic; margin-top: 2px; }
+.sz-apply { background: var(--green); color: #000; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em; margin-top: 4px; }
+.sz-apply:hover { opacity: 0.85; }
+.sz-apply:disabled { opacity: 0.35; cursor: not-allowed; }
+.sz-warning { color: var(--orange); font-size: 0.78em; margin-top: 4px; padding: 5px 8px; background: rgba(251,146,60,0.1); border-radius: 4px; }
+.sz-current { display: flex; gap: 4px; align-items: center; }
+.sz-chip { background: rgba(76,201,240,0.15); color: var(--accent); padding: 3px 10px; border-radius: 10px; font-size: 0.8em; font-weight: bold; }
+.sz-arrow { color: var(--green); font-size: 1.1em; margin: 0 4px; }
+.sz-chip.new { background: rgba(74,222,128,0.15); color: var(--green); }
+.sz-chip.removed { background: rgba(248,113,113,0.15); color: var(--red); text-decoration: line-through; }
+
 .empty-state { text-align: center; padding: 40px 20px; }
 .empty-state h2 { color: var(--muted); font-size: 1.1em; margin-bottom: 8px; }
 .empty-state p { color: #555; font-size: 0.85em; }
@@ -430,7 +450,7 @@ function removeConfig(idx) {
 }
 
 function selectConfig(idx) {
-  activeIdx = idx; scr = 'start'; selGrp = null; selProd = null;
+  activeIdx = idx; scr = 'start'; selGrp = null; selProd = null; pendingSizes = null;
   renderConfigBar(); buildPanel(); render(); updateEditCount();
 }
 
@@ -450,7 +470,15 @@ function updateEditCount() {
   if (activeIdx < 0) return;
   const ec = document.getElementById('editCount');
   const cnt = configs[activeIdx].editCount;
-  if (cnt > 0) { ec.className = 'edit-count show'; ec.textContent = cnt + ' image' + (cnt>1?'s':'') + ' replaced'; }
+  if (cnt > 0) {
+    ec.className = 'edit-count show';
+    const imgCnt = Object.keys(configs[activeIdx].replacements).length;
+    const szEdit = configs[activeIdx].sizeEdited;
+    const parts = [];
+    if (imgCnt > 0) parts.push(imgCnt + ' image' + (imgCnt>1?'s':'') + ' replaced');
+    if (szEdit) parts.push('sizes changed');
+    ec.textContent = parts.join(', ') || cnt + ' edit' + (cnt>1?'s':'');
+  }
   else { ec.className = 'edit-count'; }
 }
 
@@ -475,7 +503,7 @@ function handleReplace(input) {
 
     // Track replacement
     cfg.replacements[oldName] = { dataUrl, newFile: file };
-    cfg.editCount = Object.keys(cfg.replacements).length;
+    cfg.editCount = Object.keys(cfg.replacements).length + (cfg.sizeEdited ? 1 : 0);
 
     // Also store raw binary for download
     const rd2 = new FileReader();
@@ -522,7 +550,10 @@ async function downloadConfig() {
       // Remove any leading slashes
       cleanPath = cleanPath.replace(/^\/+/, '');
 
-      if (typeof data === 'string') {
+      // If this is the .ini file and sizes were edited, use the regenerated text
+      if (cleanPath.toLowerCase().endsWith('.ini') && cfg.sizeEdited) {
+        root.file(cleanPath, cfg.iniText);
+      } else if (typeof data === 'string') {
         root.file(cleanPath, data);
       } else if (data instanceof ArrayBuffer) {
         root.file(cleanPath, data);
@@ -595,6 +626,42 @@ function buildPanel() {
   h += setting('Screensaver', c.screensaver||'—');
   h += setting('AP Bitmask', c.ap); if (c.ap32>0) h += setting('AP 32-39', c.ap32);
   h += setting('.ppc Recipes', hasPpc?'Loaded':'None', hasPpc?'on':'off');
+  h += '</div></div>';
+
+  // Cup Size Editor
+  const currentSizes = detectSizes(c);
+  if (!pendingSizes) pendingSizes = [...currentSizes];
+  const sizesChanged = JSON.stringify(currentSizes) !== JSON.stringify([...pendingSizes].sort((a,b)=>a-b));
+
+  h += '<div class="panel-section"><h3>Cup Sizes <span class="badge badge-on">' + currentSizes.map(s=>s+'oz').join(' / ') + '</span></h3>';
+  h += '<div class="size-editor">';
+  h += '<div class="size-row"><label>Select sizes:</label><div class="size-toggle">';
+  for (const sz of ALL_SIZES) {
+    const isActive = pendingSizes.includes(sz);
+    h += '<div class="sz-btn' + (isActive ? ' active' : '') + '" onclick="toggleSize(' + sz + ')">' + sz + 'oz</div>';
+  }
+  h += '</div></div>';
+
+  // Show change preview
+  if (sizesChanged) {
+    const sorted = [...pendingSizes].sort((a,b)=>a-b);
+    const added = sorted.filter(s => !currentSizes.includes(s));
+    const removed = currentSizes.filter(s => !sorted.includes(s));
+    h += '<div class="size-row"><label>Change:</label><div class="sz-current">';
+    for (const s of currentSizes) {
+      h += '<span class="sz-chip' + (removed.includes(s) ? ' removed' : '') + '">' + s + 'oz</span>';
+    }
+    h += '<span class="sz-arrow">&#10132;</span>';
+    for (const s of sorted) {
+      h += '<span class="sz-chip' + (added.includes(s) ? ' new' : '') + '">' + s + 'oz</span>';
+    }
+    h += '</div></div>';
+    const newPpg = sorted.length;
+    h += '<div class="sz-warning">This will change PPG from ' + c.ppg + ' to ' + newPpg + ' and reassign all product slots for all groups.</div>';
+    h += '<button class="sz-apply" onclick="applySizeChange()">Apply Size Change</button>';
+  } else {
+    h += '<div class="sz-preview">Toggle sizes above, then apply to reconfigure the product map.</div>';
+  }
   h += '</div></div>';
 
   // Product Map
@@ -759,6 +826,196 @@ function render() {
     S.innerHTML='<div class="scr-done" onclick="goStart()">'+(tc||'')+'<div class="done-text">Take Your Cup</div></div>';
     timers.push(setTimeout(goStart,5000));
   }
+}
+
+/* ===== Cup Size Editor ===== */
+const ALL_SIZES = [12, 16, 20, 24];
+let pendingSizes = null; // selected sizes in the editor before applying
+
+function detectSizes(c) {
+  // Look at group 1 products to determine current sizes
+  const sizes = [];
+  for (let i = 1; i <= c.ppg; i++) {
+    const name = c.names[String(i)] || '';
+    const m = name.match(/(\d+)\s*oz/i);
+    if (m) sizes.push(parseInt(m[1]));
+  }
+  if (sizes.length > 0) return sizes.sort((a,b)=>a-b);
+  // Fallback: guess from PPG
+  if (c.ppg === 4) return [12, 16, 20, 24];
+  if (c.ppg === 3) return [16, 20, 24];
+  return [12, 16, 20];
+}
+
+function getGroupBaseNames(c) {
+  // Extract group names (the coffee type, not the size)
+  const names = [];
+  for (let g = 1; g <= 3; g++) {
+    const grp = c.groups[String(g)];
+    if (grp && grp.name) names.push(grp.name);
+    else names.push('Group ' + g);
+  }
+  return names;
+}
+
+function getIcedBaseNames(c) {
+  // Get iced product base names
+  const ppg = c.ppg, icedStart = ppg * 3 + 1;
+  const names = [];
+  for (let i = 0; i < 3; i++) {
+    const slot = icedStart + i;
+    const nm = c.names[String(slot)] || '';
+    // Strip size prefix if present
+    const stripped = nm.replace(/^\d+\s*oz\s*/i, '').trim();
+    names.push(stripped || 'Iced Coffee ' + (i+1));
+  }
+  return names;
+}
+
+function toggleSize(sz) {
+  if (!pendingSizes) return;
+  const idx = pendingSizes.indexOf(sz);
+  if (idx >= 0) {
+    if (pendingSizes.length <= 2) return; // minimum 2 sizes
+    pendingSizes.splice(idx, 1);
+  } else {
+    if (pendingSizes.length >= 4) return; // maximum 4 sizes
+    pendingSizes.push(sz);
+  }
+  pendingSizes.sort((a,b) => a-b);
+  buildPanel(); // re-render panel to update toggle states
+}
+
+function applySizeChange() {
+  if (activeIdx < 0 || !pendingSizes) return;
+  const cfg = configs[activeIdx];
+  const c = cfg.config;
+  const oldSizes = detectSizes(c);
+  const newSizes = [...pendingSizes].sort((a,b) => a-b);
+
+  // Check if anything actually changed
+  if (JSON.stringify(oldSizes) === JSON.stringify(newSizes)) return;
+
+  const groupNames = getGroupBaseNames(c);
+  const icedNames = getIcedBaseNames(c);
+  const oldPpg = c.ppg;
+  const newPpg = newSizes.length;
+
+  // Save old iced product data before reassignment
+  const oldIcedStart = oldPpg * 3 + 1;
+  const oldIcedData = [];
+  for (let i = 0; i < 3; i++) {
+    const slot = oldIcedStart + i;
+    oldIcedData.push({
+      name: c.names[String(slot)] || '',
+      pic: c.pics[String(slot)] || '',
+      disp: c.dispensing[String(slot)] || '01_SlideShow'
+    });
+  }
+
+  // Clear all standard product slots (1-40) to start fresh
+  for (let i = 1; i <= 32; i++) {
+    delete c.names[String(i)];
+    delete c.pics[String(i)];
+    delete c.dispensing[String(i)];
+  }
+
+  // Update PPG
+  c.ppg = newPpg;
+
+  // Reassign standard product slots for each group
+  for (let g = 0; g < 3; g++) {
+    const gName = groupNames[g];
+    for (let s = 0; s < newPpg; s++) {
+      const slot = g * newPpg + s + 1;
+      const sz = newSizes[s];
+      c.names[String(slot)] = sz + 'oz ' + gName;
+      c.pics[String(slot)] = sz + 'OZ.PNG';
+      c.dispensing[String(slot)] = '01_SlideShow';
+    }
+  }
+
+  // Reassign iced product slots
+  const newIcedStart = newPpg * 3 + 1;
+  for (let i = 0; i < 3; i++) {
+    const slot = newIcedStart + i;
+    // Try to preserve old iced data, fall back to generating new
+    if (oldIcedData[i] && oldIcedData[i].name) {
+      c.names[String(slot)] = oldIcedData[i].name;
+      c.pics[String(slot)] = oldIcedData[i].pic;
+      c.dispensing[String(slot)] = oldIcedData[i].disp;
+    } else {
+      c.names[String(slot)] = '20oz ' + (icedNames[i] || 'Iced Coffee');
+      c.pics[String(slot)] = 'ICED.PNG';
+      c.dispensing[String(slot)] = '01_SlideShow';
+    }
+  }
+
+  // Update ActivatedProducts bitmask
+  const totalProducts = newPpg * 3 + 3; // 3 groups + 3 iced
+  c.ap = (1 << totalProducts) - 1;
+
+  // Recalculate hot water
+  c.hotWater = detectHotWater(c);
+
+  // Regenerate INI text
+  cfg.iniText = regenerateIni(cfg);
+  cfg.sizeEdited = true;
+  cfg.editCount = Object.keys(cfg.replacements).length + 1; // +1 for size change
+
+  // Reset pendingSizes to new state
+  pendingSizes = [...newSizes];
+
+  scr = 'start'; selGrp = null; selProd = null;
+  buildPanel(); render(); updateEditCount(); renderConfigBar();
+}
+
+function regenerateIni(cfg) {
+  const c = cfg.config;
+  const newPpg = c.ppg;
+  const lines = [];
+
+  // Try to preserve original ini structure by modifying key values
+  let text = cfg.iniText || '';
+
+  // Update ProductsPerGroup
+  text = text.replace(/ProductsPerGroup=\d+/, 'ProductsPerGroup=' + newPpg);
+
+  // Update ActivatedProducts
+  text = text.replace(/ActivatedProducts=\d+/, 'ActivatedProducts=' + c.ap);
+
+  // Remove all existing ProductNames, ProductPic, DispensingPic entries
+  text = text.replace(/^.*en\\ProductNames\\\d+\\Name=.*$/gm, '');
+  text = text.replace(/^.*ProductPic\\\d+\\Button=.*$/gm, '');
+  text = text.replace(/^.*DispensingPic\\\d+\\Button=.*$/gm, '');
+
+  // Clean up excessive blank lines from removals
+  text = text.replace(/\n{3,}/g, '\n\n');
+
+  // Build new product entries
+  let productBlock = '\n; --- Product Configuration (edited) ---\n';
+
+  // Product names
+  for (const [slot, name] of Object.entries(c.names).sort((a,b) => +a[0] - +b[0])) {
+    productBlock += 'en\\ProductNames\\' + slot + '\\Name=' + name + '\n';
+  }
+  productBlock += '\n';
+
+  // Product pics
+  for (const [slot, pic] of Object.entries(c.pics).sort((a,b) => +a[0] - +b[0])) {
+    productBlock += 'ProductPic\\' + slot + '\\Button=' + pic + '\n';
+  }
+  productBlock += '\n';
+
+  // Dispensing pics
+  for (const [slot, disp] of Object.entries(c.dispensing).sort((a,b) => +a[0] - +b[0])) {
+    productBlock += 'DispensingPic\\' + slot + '\\Button=' + disp + '\n';
+  }
+
+  // Append new product block
+  text = text.trimEnd() + '\n' + productBlock;
+
+  return text;
 }
 
 function goStart(){scr='start';selGrp=null;selProd=null;render();}
