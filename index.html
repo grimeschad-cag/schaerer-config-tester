@@ -601,7 +601,7 @@ function getRecipe(slot) { return activeIdx >= 0 ? configs[activeIdx].recipes[sl
 function recipeText(slot) {
   const r = getRecipe(slot); if (!r) return '';
   const p = []; if (r.coffeeGrams > 0) p.push(r.coffeeGrams.toFixed(1)+'g coffee'); if (r.waterMl > 0) p.push(r.waterMl+'ml water');
-  return p.join(' · ');
+  return p.join(' · ') + (r.estimated ? ' (est.)' : '');
 }
 
 /* ===== Panel ===== */
@@ -680,7 +680,7 @@ function buildPanel() {
     const repBtn = (pic!=='—'&&pic!=='-----') ? '<button class="replace-btn" onclick="startReplace(\'product\','+i+',\''+pic+'\')">swap</button>' : '';
     const repTag = isReplaced ? '<span class="replaced-tag">new</span>' : '';
     h += '<tr><td class="sl">'+i+' <span style="color:#444">'+grp+'</span></td><td>'+nm+'</td><td class="'+cls+'">'+pic+repBtn+repTag+'</td>';
-    if(hasPpc){const r=recipes[i];h+='<td class="recipe-val">'+(r?r.coffeeGrams.toFixed(1)+'g':'—')+'</td><td class="recipe-val">'+(r?r.waterMl+'ml':'—')+'</td>';}
+    if(hasPpc){const r=recipes[i];const est=r&&r.estimated?' style="color:#fb923c;font-style:italic"':'';h+='<td class="recipe-val"'+(est)+' title="'+(r&&r.estimated?'Estimated':'Actual')+'">'+(r?r.coffeeGrams.toFixed(1)+'g'+(r.estimated?'~':''):'—')+'</td><td class="recipe-val"'+(est)+' title="'+(r&&r.estimated?'Estimated':'Actual')+'">'+(r?r.waterMl+'ml'+(r.estimated?'~':''):'—')+'</td>';}
     h += '</tr>';
   }
 
@@ -691,7 +691,7 @@ function buildPanel() {
     const repBtn = (pic!=='—'&&pic!=='-----') ? '<button class="replace-btn" onclick="startReplace(\'product\','+i+',\''+pic+'\')">swap</button>' : '';
     const repTag = isReplaced ? '<span class="replaced-tag">new</span>' : '';
     h += '<tr style="background:rgba(100,200,255,0.05)"><td class="sl">'+i+' <span style="color:#4488aa">Ice</span></td><td>'+nm+'</td><td class="'+cls+'">'+pic+repBtn+repTag+'</td>';
-    if(hasPpc){const r=recipes[i];h+='<td class="recipe-val">'+(r?r.coffeeGrams.toFixed(1)+'g':'—')+'</td><td class="recipe-val">'+(r?r.waterMl+'ml':'—')+'</td>';}
+    if(hasPpc){const r=recipes[i];const est=r&&r.estimated?' style="color:#fb923c;font-style:italic"':'';h+='<td class="recipe-val"'+(est)+'>'+(r?r.coffeeGrams.toFixed(1)+'g'+(r.estimated?'~':''):'—')+'</td><td class="recipe-val"'+(est)+'>'+(r?r.waterMl+'ml'+(r.estimated?'~':''):'—')+'</td>';}
     h += '</tr>';
   }
 
@@ -711,6 +711,9 @@ function buildPanel() {
     }
   }
   h += '</table>';
+  // Check if any recipes are estimated
+  const hasEstimated = hasPpc && Object.values(recipes).some(r => r && r.estimated);
+  if (hasEstimated) h += '<div style="color:#fb923c;font-size:0.75em;padding:6px 5px;font-style:italic">Values with ~ are estimated from existing recipe data using linear regression. Actual recipes should be verified on the machine.</div>';
   if(!hasPpc) h += '<div class="no-ppc">Upload a .ppc file to see recipe details (coffee grams, water ml)</div>';
   h += '</div>';
 
@@ -872,6 +875,102 @@ function getIcedBaseNames(c) {
   return names;
 }
 
+/* Recipe estimation: use linear regression on existing recipes to estimate new sizes */
+function estimateRecipes(cfg, oldSizes, newSizes) {
+  const recipes = cfg.recipes;
+  if (!recipes || Object.keys(recipes).length === 0) return;
+  const c = cfg.config;
+  const oldPpg = oldSizes.length;
+  const newPpg = newSizes.length;
+
+  // Collect known data points from group 1 (sizes → recipe values)
+  // Group 1 occupies slots 1..oldPpg in the OLD layout
+  const knownPoints = []; // [{oz, coffee, water}]
+  for (let s = 0; s < oldPpg; s++) {
+    const slot = s + 1; // group 1 slots
+    const r = recipes[slot];
+    if (r && r.coffeeGrams > 0 && r.waterMl > 0) {
+      knownPoints.push({ oz: oldSizes[s], coffee: r.coffeeGrams, water: r.waterMl });
+    }
+  }
+
+  if (knownPoints.length < 2) return; // need at least 2 points to extrapolate
+
+  // Linear regression: y = mx + b
+  function linReg(points, yKey) {
+    const n = points.length;
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (const p of points) {
+      sx += p.oz; sy += p[yKey]; sxx += p.oz * p.oz; sxy += p.oz * p[yKey];
+    }
+    const m = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const b = (sy - m * sx) / n;
+    return { m, b };
+  }
+
+  const coffeeReg = linReg(knownPoints, 'coffee');
+  const waterReg = linReg(knownPoints, 'water');
+
+  // Build a map: old size → old slot recipe (for all 3 groups)
+  const oldRecipesByGroupAndSize = {}; // { groupIdx: { oz: recipe } }
+  for (let g = 0; g < 3; g++) {
+    oldRecipesByGroupAndSize[g] = {};
+    for (let s = 0; s < oldPpg; s++) {
+      const slot = g * oldPpg + s + 1;
+      const r = recipes[slot];
+      if (r) oldRecipesByGroupAndSize[g][oldSizes[s]] = r;
+    }
+  }
+
+  // Clear old recipe slots
+  const oldTotalSlots = oldPpg * 3 + 3;
+  // Don't delete iced recipes, we'll handle them separately
+  for (let i = 1; i <= oldPpg * 3; i++) {
+    delete recipes[i];
+  }
+
+  // Assign recipes to new slots
+  for (let g = 0; g < 3; g++) {
+    // Get this group's own regression if it has enough data
+    const gPoints = [];
+    for (const [oz, r] of Object.entries(oldRecipesByGroupAndSize[g] || {})) {
+      if (r.coffeeGrams > 0 && r.waterMl > 0) gPoints.push({ oz: +oz, coffee: r.coffeeGrams, water: r.waterMl });
+    }
+    const gCoffeeReg = gPoints.length >= 2 ? linReg(gPoints, 'coffee') : coffeeReg;
+    const gWaterReg = gPoints.length >= 2 ? linReg(gPoints, 'water') : waterReg;
+
+    for (let s = 0; s < newPpg; s++) {
+      const newSlot = g * newPpg + s + 1;
+      const sz = newSizes[s];
+
+      // If this group had this exact size before, reuse that recipe
+      if (oldRecipesByGroupAndSize[g] && oldRecipesByGroupAndSize[g][sz]) {
+        recipes[newSlot] = { ...oldRecipesByGroupAndSize[g][sz] };
+        recipes[newSlot].estimated = false;
+      } else {
+        // Estimate using linear regression
+        const estCoffee = Math.max(0, Math.round((gCoffeeReg.m * sz + gCoffeeReg.b) * 10) / 10);
+        const estWater = Math.max(0, Math.round(gWaterReg.m * sz + gWaterReg.b));
+        recipes[newSlot] = { coffeeGrams: estCoffee, waterMl: estWater, estimated: true };
+      }
+    }
+  }
+
+  // Move iced recipes to new slots
+  const oldIcedStart = oldPpg * 3 + 1;
+  const newIcedStart = newPpg * 3 + 1;
+  for (let i = 0; i < 3; i++) {
+    const oldSlot = oldIcedStart + i;
+    const newSlot = newIcedStart + i;
+    if (oldSlot !== newSlot) {
+      if (cfg._oldIcedRecipes && cfg._oldIcedRecipes[i]) {
+        recipes[newSlot] = cfg._oldIcedRecipes[i];
+      }
+      if (oldSlot !== newSlot) delete recipes[oldSlot];
+    }
+  }
+}
+
 function toggleSize(sz) {
   if (!pendingSizes) return;
   const idx = pendingSizes.indexOf(sz);
@@ -901,8 +1000,12 @@ function applySizeChange() {
   const oldPpg = c.ppg;
   const newPpg = newSizes.length;
 
-  // Save old iced product data before reassignment
+  // Save old iced product data and recipes before reassignment
   const oldIcedStart = oldPpg * 3 + 1;
+  cfg._oldIcedRecipes = [];
+  for (let i = 0; i < 3; i++) {
+    cfg._oldIcedRecipes.push(cfg.recipes[oldIcedStart + i] || null);
+  }
   const oldIcedData = [];
   for (let i = 0; i < 3; i++) {
     const slot = oldIcedStart + i;
@@ -950,6 +1053,9 @@ function applySizeChange() {
       c.dispensing[String(slot)] = '01_SlideShow';
     }
   }
+
+  // Estimate recipes for new/moved slots
+  estimateRecipes(cfg, oldSizes, newSizes);
 
   // Update ActivatedProducts bitmask
   const totalProducts = newPpg * 3 + 3; // 3 groups + 3 iced
