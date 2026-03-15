@@ -1270,76 +1270,87 @@ function regenerateIni(cfg) {
   const c = cfg.config;
   const newPpg = c.ppg;
 
-  let text = cfg.iniText || '';
+  // --- Parse the original INI into sections ---
+  const text = cfg.iniText || '';
+  const lines = text.split('\n');
+  const sections = []; // [{header:'[SectionName]', entries:['key=val',...]}]
+  let curSection = { header: '', entries: [] }; // preamble (before first section)
 
-  // Update ProductsPerGroup
-  text = text.replace(/ProductsPerGroup=\d+/, 'ProductsPerGroup=' + newPpg);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^\[.+\]$/.test(trimmed)) {
+      sections.push(curSection);
+      curSection = { header: trimmed, entries: [] };
+    } else if (trimmed !== '') {
+      curSection.entries.push(trimmed);
+    }
+  }
+  sections.push(curSection);
 
-  // Update ActivatedProducts (first occurrence only — the one in [SelfMode])
-  text = text.replace(/ActivatedProducts=\d+/, 'ActivatedProducts=' + c.ap);
-
-  // Remove all existing ProductNames, ProductPic, DispensingPic entries
-  text = text.replace(/^.*en\\ProductNames\\\d+\\Name=.*$/gm, '');
-  text = text.replace(/^.*ProductPic\\\d+\\Button=.*$/gm, '');
-  text = text.replace(/^.*DispensingPic\\\d+\\Button=.*$/gm, '');
-
-  // Clean up excessive blank lines from removals
-  text = text.replace(/\n{3,}/g, '\n\n');
-
-  // === Build new ProductNames block (goes inside [Localization]) ===
-  let namesBlock = '';
-  for (const [slot, name] of Object.entries(c.names).sort((a,b) => +a[0] - +b[0])) {
-    namesBlock += 'en\\ProductNames\\' + slot + '\\Name=' + name + '\n';
+  // --- Helper: find section by name ---
+  function findSection(name) {
+    return sections.find(s => s.header === '[' + name + ']');
   }
 
-  // === Build new ProductPic block (goes inside [SelfMode]) — ALL 40 slots ===
-  let picsBlock = '';
-  for (let i = 1; i <= 40; i++) {
-    const pic = c.pics[String(i)] || '-----';
-    picsBlock += 'ProductPic\\' + i + '\\Button=' + pic + '\n';
+  // --- Update [SelfMode] ---
+  const sm = findSection('SelfMode');
+  if (sm) {
+    // Remove old ProductPic, DispensingPic entries
+    sm.entries = sm.entries.filter(e =>
+      !(/^ProductPic\\\d+\\Button=/.test(e)) &&
+      !(/^DispensingPic\\\d+\\Button=/.test(e))
+    );
+
+    // Update ActivatedProducts
+    sm.entries = sm.entries.map(e => {
+      if (/^ActivatedProducts=\d+$/.test(e)) return 'ActivatedProducts=' + c.ap;
+      if (/^ProductsPerGroup=\d+$/.test(e)) return 'ProductsPerGroup=' + newPpg;
+      return e;
+    });
+
+    // Build new ProductPic and DispensingPic entries for all 40 slots
+    for (let i = 1; i <= 40; i++) {
+      sm.entries.push('ProductPic\\' + i + '\\Button=' + (c.pics[String(i)] || '-----'));
+      sm.entries.push('DispensingPic\\' + i + '\\Button=' + (c.dispensing[String(i)] || '-----'));
+    }
+
+    // Sort ALL entries in [SelfMode] lexicographically (Qt QSettings format)
+    sm.entries.sort((a, b) => a.localeCompare(b));
   }
 
-  // === Build new DispensingPic block (goes inside [SelfMode]) — ALL 40 slots ===
-  let dispBlock = '';
-  for (let i = 1; i <= 40; i++) {
-    const disp = c.dispensing[String(i)] || '-----';
-    dispBlock += 'DispensingPic\\' + i + '\\Button=' + disp + '\n';
+  // --- Update [Localization] ---
+  const loc = findSection('Localization');
+  if (loc) {
+    // Remove old ProductNames entries
+    loc.entries = loc.entries.filter(e => !(/^en\\ProductNames\\\d+\\Name=/.test(e)));
+
+    // Add new ProductNames
+    for (const [slot, name] of Object.entries(c.names)) {
+      loc.entries.push('en\\ProductNames\\' + slot + '\\Name=' + name);
+    }
+
+    // Sort ALL entries lexicographically (Qt QSettings format)
+    loc.entries.sort((a, b) => a.localeCompare(b));
   }
 
-  // === Insert ProductNames into [Localization] section ===
-  // Find where [Localization] section ends (next section header or EOF)
-  const locMatch = text.match(/\[Localization\][^\[]*/s);
-  if (locMatch) {
-    const locSection = locMatch[0];
-    // Insert names at the end of the [Localization] section (before the next section)
-    const updatedLoc = locSection.trimEnd() + '\n' + namesBlock;
-    text = text.replace(locSection, updatedLoc);
-  } else {
-    // Fallback: no [Localization] section found, append after [Languages]
-    text = text.trimEnd() + '\n\n[Localization]\n' + namesBlock;
-  }
-
-  // === Insert ProductPic and DispensingPic into [SelfMode] section ===
-  // Find where to insert within [SelfMode]: before ProductsPerGroup line
-  const ppgLine = 'ProductsPerGroup=' + newPpg;
-  const ppgIdx = text.indexOf(ppgLine);
-  if (ppgIdx >= 0) {
-    // Insert pics and dispensing just before ProductsPerGroup
-    const insertBlock = picsBlock + dispBlock;
-    text = text.slice(0, ppgIdx) + insertBlock + text.slice(ppgIdx);
-  } else {
-    // Fallback: append to [SelfMode]
-    const smMatch = text.match(/\[SelfMode\][^\[]*/s);
-    if (smMatch) {
-      const smSection = smMatch[0];
-      text = text.replace(smSection, smSection.trimEnd() + '\n' + picsBlock + dispBlock);
+  // --- Reassemble INI with proper blank line separators between sections ---
+  let result = '';
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i];
+    if (s.header) {
+      // Ensure blank line before every section header
+      if (result.length > 0 && !result.endsWith('\n\n')) {
+        if (result.endsWith('\n')) result += '\n';
+        else result += '\n\n';
+      }
+      result += s.header + '\n';
+    }
+    if (s.entries.length > 0) {
+      result += s.entries.join('\n') + '\n';
     }
   }
 
-  // Clean up any triple+ blank lines that might remain
-  text = text.replace(/\n{3,}/g, '\n\n');
-
-  return text;
+  return result;
 }
 
 function goStart(){scr='start';selGrp=null;selProd=null;ssSlideIdx=0;render();}
