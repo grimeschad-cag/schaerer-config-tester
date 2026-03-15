@@ -62,6 +62,17 @@ header p { color: var(--muted); font-size: 0.85em; }
 .scr-start .touch-msg { color: var(--accent); font-size: 22px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; animation: pulse 2.5s ease-in-out infinite; }
 .scr-start .sub-msg { color: var(--warm); font-size: 13px; margin-top: 8px; }
 @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+.ss-slideshow { position: relative; max-width: 100%; max-height: 70%; display: flex; align-items: center; justify-content: center; }
+.ss-slideshow img.ss-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ss-dots { display: flex; gap: 5px; justify-content: center; margin: 6px 0 2px; }
+.ss-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.25); cursor: pointer; transition: background 0.2s; }
+.ss-dot.active { background: var(--accent); }
+.ss-dot:hover { background: rgba(76,201,240,0.6); }
+.ss-count { color: #666; font-size: 9px; margin-top: 2px; }
+.ss-nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.4); color: #fff; border: none; font-size: 16px; padding: 6px 8px; cursor: pointer; z-index: 6; border-radius: 3px; opacity: 0.5; transition: opacity 0.15s; }
+.ss-nav-btn:hover { opacity: 1; }
+.ss-nav-btn.prev { left: 4px; }
+.ss-nav-btn.next { right: 4px; }
 
 .scr-groups { padding: 12px; display: flex; flex-direction: column; height: 100%; }
 .scr-header { text-align: center; color: #5bb8d4; font-size: 16px; font-weight: bold; letter-spacing: 2px; padding: 8px 0; text-transform: uppercase; }
@@ -235,13 +246,15 @@ footer a { color: var(--accent); text-decoration: none; }
 
 <script>
 /* ===== State ===== */
-let configs = [];  // {name, config, recipes, images:{}, rawFiles:{path:ArrayBuffer}, iniText, replacements:{oldName:newDataUrl}, editCount}
+let configs = [];  // {name, config, recipes, images:{}, rawFiles:{path:ArrayBuffer}, iniText, replacements:{oldName:newDataUrl}, editCount, slideshow:{startScreen:[],dispensing:[]}}
 let activeIdx = -1;
 let scr = 'start';
 let selGrp = null;
 let selProd = null;
 let timers = [];
-let replaceTarget = null; // {type:'group'|'product'|'fill'|'takecup', id, filename}
+let replaceTarget = null; // {type:'group'|'product'|'fill'|'takecup'|'slideshow_start'|'slideshow_disp', id, filename}
+let ssSlideIdx = 0;  // current slideshow index for start screen
+let dispSlideIdx = 0; // current slideshow index for dispensing screen
 
 /* ===== INI Parser ===== */
 function parseIni(text, filename) {
@@ -346,7 +359,7 @@ function handleFiles(files) {
     rd.onload = e => {
       const iniText = e.target.result;
       const config = parseIni(iniText, f.name);
-      const cfg = { name: f.name.replace('.ini',''), config, recipes: {}, images: {}, rawFiles: {}, iniText, replacements: {}, editCount: 0 };
+      const cfg = { name: f.name.replace('.ini',''), config, recipes: {}, images: {}, rawFiles: {}, iniText, replacements: {}, editCount: 0, slideshow: { startScreen: [], dispensing: [] } };
       cfg.rawFiles[f.name] = iniText;
 
       const bn = f.name.replace('.ini','');
@@ -402,7 +415,7 @@ async function processEntries(entries) {
   for (const ini of iniF) {
     const iniText = await ini.file.text();
     const config = parseIni(iniText, ini.file.name);
-    const cfg = { name: ini.file.name.replace('.ini',''), config, recipes: {}, images: {}, rawFiles: {}, iniText, replacements: {}, editCount: 0 };
+    const cfg = { name: ini.file.name.replace('.ini',''), config, recipes: {}, images: {}, rawFiles: {}, iniText, replacements: {}, editCount: 0, slideshow: { startScreen: [], dispensing: [] } };
 
     // Store ini raw
     cfg.rawFiles[ini.path || ini.file.name] = iniText;
@@ -418,6 +431,14 @@ async function processEntries(entries) {
       cfg.images[img.file.name.toLowerCase()] = data;
       const raw = await img.file.arrayBuffer();
       cfg.rawFiles[img.path || img.file.name] = raw;
+
+      // Detect slideshow images by their folder path
+      const imgPath = (img.path || '').replace(/\\/g, '/');
+      if (imgPath.includes('01_StartScreen') && imgPath.includes('01_SlideShow')) {
+        cfg.slideshow.startScreen.push({ name: img.file.name, dataUrl: data, path: imgPath });
+      } else if (imgPath.includes('05_DispensingScreen') && imgPath.includes('01_SlideShow')) {
+        cfg.slideshow.dispensing.push({ name: img.file.name, dataUrl: data, path: imgPath });
+      }
     }
 
     // Store other files (dat, si, slr, exe, dll, etc)
@@ -452,7 +473,7 @@ function removeConfig(idx) {
 }
 
 function selectConfig(idx) {
-  activeIdx = idx; scr = 'start'; selGrp = null; selProd = null; pendingSizes = null;
+  activeIdx = idx; scr = 'start'; selGrp = null; selProd = null; pendingSizes = null; ssSlideIdx = 0; dispSlideIdx = 0;
   renderConfigBar(); buildPanel(); render(); updateEditCount();
 }
 
@@ -495,11 +516,38 @@ function handleReplace(input) {
   const file = input.files[0];
   const cfg = configs[activeIdx];
   const oldName = replaceTarget.filename;
+  const rType = replaceTarget.type;
 
   const rd = new FileReader();
   rd.onload = e => {
     const dataUrl = e.target.result;
-    // Update image store with new image under the OLD filename
+
+    // Handle slideshow image replacement
+    if (rType === 'slideshow_start' || rType === 'slideshow_disp') {
+      const slideArr = rType === 'slideshow_start' ? cfg.slideshow.startScreen : cfg.slideshow.dispensing;
+      const slideIdx = replaceTarget.id;
+      if (slideIdx >= 0 && slideIdx < slideArr.length) {
+        const oldSlide = slideArr[slideIdx];
+        slideArr[slideIdx] = { name: oldSlide.name, dataUrl, path: oldSlide.path };
+        // Also update in images store
+        cfg.images[oldSlide.name] = dataUrl;
+        cfg.images[oldSlide.name.toLowerCase()] = dataUrl;
+        // Track replacement
+        cfg.replacements['slideshow:' + rType + ':' + oldSlide.name] = { dataUrl, newFile: file, slideshowType: rType, slidePath: oldSlide.path };
+        cfg.editCount = Object.keys(cfg.replacements).length + (cfg.sizeEdited ? 1 : 0);
+        // Update raw file
+        const rd2 = new FileReader();
+        rd2.onload = ev => {
+          if (oldSlide.path) cfg.rawFiles[oldSlide.path] = ev.target.result;
+          buildPanel(); render(); updateEditCount(); renderConfigBar();
+        };
+        rd2.readAsArrayBuffer(file);
+      }
+      input.value = '';
+      return;
+    }
+
+    // Standard image replacement (original behavior)
     cfg.images[oldName] = dataUrl;
     cfg.images[oldName.toLowerCase()] = dataUrl;
 
@@ -570,6 +618,13 @@ async function downloadConfig() {
 
   // Make sure all replacement images are in the zip under SelfMode paths
   for (const [filename, rep] of Object.entries(cfg.replacements)) {
+    // Handle slideshow replacements (keyed as 'slideshow:type:filename')
+    if (filename.startsWith('slideshow:') && rep.slidePath) {
+      const raw = await rep.newFile.arrayBuffer();
+      // slidePath is the original path from processEntries, use it directly
+      root.file(rep.slidePath, raw);
+      continue;
+    }
     const raw = await rep.newFile.arrayBuffer();
     // Determine which SelfMode subfolders this image belongs in
     const c2 = cfg.config;
@@ -626,6 +681,10 @@ function buildPanel() {
   h += setting('Hot Water', hw.active?'ON':'OFF', hw.active?'hw':'off');
   if (hw.active) h += setting('HW Slots', hw.slots.join(', '), 'hw');
   h += setting('Screensaver', c.screensaver||'—');
+  const ssCount = configs[activeIdx].slideshow.startScreen.length;
+  const dCount = configs[activeIdx].slideshow.dispensing.length;
+  if (ssCount > 0) h += setting('SS Slideshow', ssCount + ' image' + (ssCount>1?'s':''), 'on');
+  if (dCount > 0) h += setting('Disp Slideshow', dCount + ' image' + (dCount>1?'s':''), 'on');
   h += setting('AP Bitmask', c.ap); if (c.ap32>0) h += setting('AP 32-39', c.ap32);
   h += setting('.ppc Recipes', hasPpc?'Loaded':'None', hasPpc?'on':'off');
   h += '</div></div>';
@@ -757,7 +816,7 @@ function recipeCell(slot, r) {
 
 /* ===== Image Resolver ===== */
 function getImg(fn) {
-  if(!fn||fn==='-----'||fn.includes('01_SlideShow'))return null;
+  if(!fn||fn==='-----'||fn==='01_SlideShow')return null;
   const imgs=configs[activeIdx].images;
   return imgs[fn]||imgs[fn.toLowerCase()]||null;
 }
@@ -780,13 +839,38 @@ function render() {
   document.getElementById('navRow').innerHTML=steps.map((_,i)=>'<div class="dot'+(i===si?' on':'')+'"></div>').join('')+'<span class="nav-label">'+(labels[si]||'')+'</span>';
 
   if(scr==='start'){
-    const ssImg=imgTag(c.screensaver,'ss-img');
+    const cfg2 = configs[activeIdx];
+    const slides = cfg2.slideshow.startScreen;
     const ssFn=c.screensaver||'';
-    S.innerHTML='<div class="scr-start" onclick="goGroups()">'+
-      (ssImg?'<div style="position:relative;max-width:100%;max-height:70%">'+ssImg+
-        '<span class="replace-overlay" onclick="event.stopPropagation();startReplace(\'screensaver\',0,\''+ssFn+'\')">REPLACE</span></div>':'')+
+    let imgHtml = '';
+    if (slides.length > 0) {
+      // Slideshow mode: cycle through multiple images
+      if (ssSlideIdx >= slides.length) ssSlideIdx = 0;
+      const cur = slides[ssSlideIdx];
+      const dots = slides.map((s,i) => '<span class="ss-dot'+(i===ssSlideIdx?' active':'')+'" onclick="event.stopPropagation();goSlide(\'start\','+i+')"></span>').join('');
+      imgHtml = '<div class="ss-slideshow">' +
+        '<img src="'+cur.dataUrl+'" class="ss-img">' +
+        '<span class="replace-overlay" onclick="event.stopPropagation();startReplace(\'slideshow_start\','+ssSlideIdx+',\''+cur.name+'\')">REPLACE</span>' +
+        (slides.length>1?'<button class="ss-nav-btn prev" onclick="event.stopPropagation();goSlide(\'start\','+(ssSlideIdx-1+slides.length)%slides.length+')">&#9664;</button>'+
+          '<button class="ss-nav-btn next" onclick="event.stopPropagation();goSlide(\'start\','+(ssSlideIdx+1)%slides.length+')">&#9654;</button>':'') +
+        '</div>' +
+        '<div class="ss-dots">'+dots+'</div>' +
+        '<div class="ss-count">'+cur.name+' ('+(ssSlideIdx+1)+'/'+slides.length+')</div>';
+      // Auto-advance slideshow every 3 seconds
+      if (slides.length > 1) {
+        timers.push(setTimeout(() => { ssSlideIdx = (ssSlideIdx + 1) % slides.length; render(); }, 3000));
+      }
+    } else {
+      // Single screensaver image (original behavior)
+      const ssImg=imgTag(c.screensaver,'ss-img');
+      if (ssImg) {
+        imgHtml = '<div style="position:relative;max-width:100%;max-height:70%">'+ssImg+
+          '<span class="replace-overlay" onclick="event.stopPropagation();startReplace(\'screensaver\',0,\''+ssFn+'\')">REPLACE</span></div>';
+      }
+    }
+    S.innerHTML='<div class="scr-start" onclick="goGroups()">'+imgHtml+
       '<div class="touch-msg">Touch Here to Begin</div><div class="sub-msg">'+configs[activeIdx].name+'</div>'+
-      (ssFn?'<div style="color:#555;font-size:9px;margin-top:5px">'+ssFn+'</div>':'')+
+      (slides.length===0&&ssFn?'<div style="color:#555;font-size:9px;margin-top:5px">'+ssFn+'</div>':'')+
       '</div>';
   }
   else if(scr==='groups'){
@@ -837,8 +921,30 @@ function render() {
     S.innerHTML=h;
   }
   else if(scr==='dispensing'){
+    const cfg2 = configs[activeIdx];
     const pn=c.names[String(selProd)]||'',rt=recipeText(selProd);
-    S.innerHTML='<div class="scr-disp"><div class="brew-anim">Brewing...</div><div class="brew-product">'+pn+'</div>'+(rt?'<div class="brew-recipe">'+rt+'</div>':'')+'<div class="brew-bar"><div class="brew-fill"></div></div></div>';
+    const dSlides = cfg2.slideshow.dispensing;
+    let dispImgHtml = '';
+    if (dSlides.length > 0) {
+      if (dispSlideIdx >= dSlides.length) dispSlideIdx = 0;
+      const cur = dSlides[dispSlideIdx];
+      dispImgHtml = '<div style="position:relative;max-width:80%;max-height:40%;margin-bottom:10px">' +
+        '<img src="'+cur.dataUrl+'" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:4px">' +
+        '<span class="replace-overlay" onclick="event.stopPropagation();startReplace(\'slideshow_disp\','+dispSlideIdx+',\''+cur.name+'\')">REPLACE</span></div>' +
+        (dSlides.length > 1 ? '<div class="ss-dots" style="margin-bottom:8px">' + dSlides.map((s,i) => '<span class="ss-dot'+(i===dispSlideIdx?' active':'')+'" onclick="goSlide(\'disp\','+i+')"></span>').join('') + '</div>' : '') +
+        '<div class="ss-count" style="margin-bottom:6px">'+cur.name+' ('+(dispSlideIdx+1)+'/'+dSlides.length+')</div>';
+      if (dSlides.length > 1) {
+        timers.push(setTimeout(() => { dispSlideIdx = (dispSlideIdx + 1) % dSlides.length; if (scr === 'dispensing') render(); }, 2000));
+      }
+    } else {
+      // Check for individual dispensing pic
+      const dispPic = c.dispensing[String(selProd)] || '';
+      const dispImg = getImg(dispPic);
+      if (dispImg) {
+        dispImgHtml = '<div style="max-width:80%;max-height:40%;margin-bottom:10px"><img src="'+dispImg+'" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:4px"></div>';
+      }
+    }
+    S.innerHTML='<div class="scr-disp">'+dispImgHtml+'<div class="brew-anim">Brewing...</div><div class="brew-product">'+pn+'</div>'+(rt?'<div class="brew-recipe">'+rt+'</div>':'')+'<div class="brew-bar"><div class="brew-fill"></div></div></div>';
     timers.push(setTimeout(()=>{scr='done';render();},4000));
   }
   else if(scr==='done'){
@@ -1160,13 +1266,19 @@ function regenerateIni(cfg) {
   return text;
 }
 
-function goStart(){scr='start';selGrp=null;selProd=null;render();}
+function goStart(){scr='start';selGrp=null;selProd=null;ssSlideIdx=0;render();}
 function goGroups(){scr='groups';render();}
 function goBev(){scr='beverages';render();}
 function pickGroup(g){selGrp=g;scr='beverages';render();}
-function pickBev(s){selProd=s;scr=configs[activeIdx].config.fill_level_visible?'fill':'dispensing';render();}
-function goDispense(){scr='dispensing';render();}
-function pickHotWater(slot){selProd=slot;scr='dispensing';render();}
+function pickBev(s){selProd=s;dispSlideIdx=0;scr=configs[activeIdx].config.fill_level_visible?'fill':'dispensing';render();}
+function goDispense(){dispSlideIdx=0;scr='dispensing';render();}
+function pickHotWater(slot){selProd=slot;dispSlideIdx=0;scr='dispensing';render();}
+function goSlide(type, idx) {
+  timers.forEach(clearTimeout); timers = [];
+  if (type === 'start') { ssSlideIdx = idx; }
+  else if (type === 'disp') { dispSlideIdx = idx; }
+  render();
+}
 </script>
 </body>
 </html>
