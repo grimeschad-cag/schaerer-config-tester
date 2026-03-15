@@ -8,7 +8,7 @@
 :root {
   --bg: #1a1a2e; --panel: #16213e; --accent: #4cc9f0; --warm: #d4a574;
   --brown: #3b2417; --brown-light: #4a3228; --text: #e0e0e0; --muted: #888;
-  --green: #4ade80; --red: #f87171;
+  --green: #4ade80; --red: #f87171; --orange: #fb923c; --blue: #60a5fa;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; min-height: 100vh; }
@@ -29,13 +29,16 @@ header p { color: var(--muted); font-size: 0.85em; }
 .upload-zone p { color: var(--muted); font-size: 0.85em; margin-bottom: 5px; }
 .upload-zone .or { color: #555; margin: 10px 0; font-size: 0.8em; }
 .upload-zone input[type=file] { display: none; }
+.upload-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .upload-btn { background: var(--accent); color: #000; border: none; padding: 8px 22px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; }
 .upload-btn:hover { opacity: 0.85; }
+.upload-btn.secondary { background: rgba(76,201,240,0.2); color: var(--accent); border: 1px solid var(--accent); }
+.upload-btn.secondary:hover { background: rgba(76,201,240,0.35); }
 .file-types { display: flex; gap: 15px; justify-content: center; margin-top: 12px; }
 .file-type { background: rgba(76,201,240,0.1); padding: 4px 12px; border-radius: 4px; font-size: 0.78em; color: var(--accent); }
 
 /* Loaded configs bar */
-.configs-bar { max-width: 900px; margin: 10px auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px; }
+.configs-bar { max-width: 1200px; margin: 10px auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px; }
 .configs-bar label { color: var(--muted); font-size: 0.85em; white-space: nowrap; }
 .config-chip {
   background: var(--panel); border: 1px solid #3a4a6e; padding: 5px 14px; border-radius: 20px;
@@ -47,7 +50,7 @@ header p { color: var(--muted); font-size: 0.85em; }
 .config-chip .x:hover { opacity: 1; color: var(--red); }
 
 /* Main layout */
-.main { display: flex; gap: 20px; max-width: 1100px; margin: 15px auto; padding: 0 20px; flex-wrap: wrap; justify-content: center; }
+.main { display: flex; gap: 20px; max-width: 1200px; margin: 15px auto; padding: 0 20px; flex-wrap: wrap; justify-content: center; }
 
 /* Machine frame */
 .machine-wrap { flex-shrink: 0; }
@@ -79,6 +82,8 @@ header p { color: var(--muted); font-size: 0.85em; }
 .grp-btn img { max-width: 100%; max-height: 150px; object-fit: contain; border-radius: 4px; }
 .grp-btn .grp-name { color: var(--accent); font-size: 14px; font-weight: bold; text-align: center; text-transform: uppercase; letter-spacing: 1px; }
 .grp-btn .grp-img-name { color: #666; font-size: 9px; margin-top: 3px; word-break: break-all; }
+.grp-btn.hw-btn { border: 1px solid var(--orange); }
+.grp-btn.hw-btn .grp-name { color: var(--orange); }
 
 .scr-bev { padding: 10px; display: flex; flex-direction: column; height: 100%; }
 .bev-title { text-align: center; color: var(--warm); font-size: 20px; font-weight: bold; padding: 2px 0 8px; }
@@ -93,6 +98,7 @@ header p { color: var(--muted); font-size: 0.85em; }
 .bev-btn .bev-info { flex: 1; }
 .bev-btn .bev-name { color: var(--text); font-size: 13px; font-weight: bold; }
 .bev-btn .bev-pic { color: #666; font-size: 9px; margin-top: 2px; word-break: break-all; }
+.bev-btn .bev-recipe { color: var(--blue); font-size: 10px; margin-top: 3px; }
 .bev-btn .cup-icon { font-size: 28px; opacity: 0.7; }
 
 .scr-fill { padding: 15px; display: flex; flex-direction: column; height: 100%; align-items: center; justify-content: center; }
@@ -109,6 +115,7 @@ header p { color: var(--muted); font-size: 0.85em; }
 .scr-disp { display: flex; flex-direction: column; height: 100%; align-items: center; justify-content: center; }
 .brew-anim { color: var(--accent); font-size: 22px; font-weight: bold; letter-spacing: 2px; animation: pulse 2s ease-in-out infinite; text-transform: uppercase; }
 .brew-product { color: var(--warm); font-size: 15px; margin: 15px 0; }
+.brew-recipe { color: var(--blue); font-size: 12px; margin-bottom: 15px; }
 .brew-bar { width: 220px; height: 6px; background: #5a3a28; border-radius: 3px; overflow: hidden; }
 .brew-fill { height: 100%; background: var(--accent); border-radius: 3px; animation: brewfill 4s ease-in-out forwards; }
 @keyframes brewfill { 0%{width:0}100%{width:100%} }
@@ -125,11 +132,15 @@ header p { color: var(--muted); font-size: 0.85em; }
 .back-btn:hover { background: rgba(76,201,240,0.3); }
 
 /* Panel */
-.panel { flex: 1; min-width: 300px; max-width: 450px; }
+.panel { flex: 1; min-width: 320px; max-width: 500px; }
 .panel-section {
   background: var(--panel); border-radius: 10px; padding: 14px; margin-bottom: 12px;
 }
-.panel-section h3 { color: var(--accent); font-size: 0.95em; margin-bottom: 8px; }
+.panel-section h3 { color: var(--accent); font-size: 0.95em; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.panel-section h3 .badge { font-size: 0.7em; padding: 2px 8px; border-radius: 10px; font-weight: normal; }
+.badge-on { background: rgba(74,222,128,0.2); color: var(--green); }
+.badge-off { background: rgba(136,136,136,0.2); color: var(--muted); }
+.badge-hw { background: rgba(251,146,60,0.2); color: var(--orange); }
 .tbl { width: 100%; border-collapse: collapse; font-size: 0.75em; }
 .tbl th { text-align: left; color: var(--accent); padding: 3px 5px; border-bottom: 1px solid #2a3a5e; }
 .tbl td { padding: 3px 5px; border-bottom: 1px solid #1a2a4e; }
@@ -137,10 +148,14 @@ header p { color: var(--muted); font-size: 0.85em; }
 .pn { color: var(--warm); font-size: 0.88em; word-break: break-all; }
 .ok { color: var(--green); }
 .bad { color: var(--red); }
+.recipe-val { color: var(--blue); font-family: monospace; font-size: 0.85em; }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .setting { background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 4px; }
 .setting .lbl { color: var(--muted); font-size: 0.75em; }
 .setting .val { color: var(--accent); font-weight: bold; font-size: 0.9em; }
+.setting .val.on { color: var(--green); }
+.setting .val.off { color: var(--muted); }
+.setting .val.hw { color: var(--orange); }
 
 /* Cup size placeholders */
 .cup-placeholder {
@@ -152,10 +167,15 @@ header p { color: var(--muted); font-size: 0.85em; }
 .cup-placeholder .filename { color: #555; font-size: 8px; margin-top: 2px; }
 
 /* Iced placeholder */
-.iced-placeholder {
-  background: rgba(100,200,255,0.1); border: 1px solid rgba(100,200,255,0.2);
-}
+.iced-placeholder { background: rgba(100,200,255,0.1); border: 1px solid rgba(100,200,255,0.2); }
 .iced-placeholder .size { color: #88d4f0; }
+
+/* Hot water placeholder */
+.hw-placeholder { background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.2); }
+.hw-placeholder .size { color: var(--orange); }
+
+/* No recipe notice */
+.no-ppc { text-align: center; color: #555; font-size: 0.78em; padding: 6px; font-style: italic; }
 
 /* Empty state */
 .empty-state { text-align: center; padding: 40px 20px; }
@@ -165,6 +185,13 @@ header p { color: var(--muted); font-size: 0.85em; }
 /* Footer */
 footer { text-align: center; padding: 20px; color: #333; font-size: 0.7em; }
 footer a { color: var(--accent); text-decoration: none; }
+
+/* Tab bar for panel sections */
+.tab-bar { display: flex; gap: 4px; margin-bottom: 10px; }
+.tab-btn { background: rgba(0,0,0,0.3); color: var(--muted); border: none; padding: 5px 12px; border-radius: 4px 4px 0 0; cursor: pointer; font-size: 0.78em; }
+.tab-btn.active { background: rgba(76,201,240,0.15); color: var(--accent); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 </style>
 </head>
 <body>
@@ -176,14 +203,19 @@ footer a { color: var(--accent); text-decoration: none; }
 
 <div class="upload-zone" id="uploadZone">
   <h2>Upload Configuration</h2>
-  <p>Drag & drop .ini config files here, or upload a full config folder (with SelfMode images)</p>
+  <p>Drag & drop .ini and .ppc config files here, or upload a full config folder (with SelfMode images)</p>
   <div class="or">- or -</div>
-  <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose Files</button>
-  <input type="file" id="fileInput" multiple accept=".ini,.png,.PNG,.jpg,.jpeg" onchange="handleFiles(this.files)">
+  <div class="upload-btns">
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose Files</button>
+    <button class="upload-btn secondary" onclick="document.getElementById('folderInput').click()">Upload Folder</button>
+  </div>
+  <input type="file" id="fileInput" multiple accept=".ini,.ppc,.png,.PNG,.jpg,.jpeg" onchange="handleFiles(this.files)">
+  <input type="file" id="folderInput" webkitdirectory directory multiple onchange="handleFiles(this.files)">
   <div class="file-types">
     <span class="file-type">.ini config</span>
+    <span class="file-type">.ppc recipes</span>
     <span class="file-type">.png images</span>
-    <span class="file-type">folder upload</span>
+    <span class="file-type">full folder</span>
   </div>
 </div>
 
@@ -205,6 +237,7 @@ footer a { color: var(--accent); text-decoration: none; }
 <div class="empty-state" id="emptyState">
   <h2>No configs loaded</h2>
   <p>Upload a .ini file above to preview how it will look on the machine touchscreen.</p>
+  <p style="margin-top:5px;color:#444">Upload a .ppc file alongside the .ini to see recipe details (water, coffee grams).</p>
   <p style="margin-top:8px;color:#444">Supports both 3-per-group (16/20/24oz) and 4-per-group (12/16/20/24oz) layouts.</p>
 </div>
 
@@ -214,7 +247,7 @@ footer a { color: var(--accent); text-decoration: none; }
 
 <script>
 /* ===== State ===== */
-let configs = [];       // {name, config, images:{}}
+let configs = [];       // {name, config, recipes, images:{}}
 let activeIdx = -1;
 let scr = 'start';
 let selGrp = null;
@@ -229,6 +262,7 @@ function parseIni(text, filename) {
 
   c.ppg = parseInt(get(/ProductsPerGroup=(\d+)/)) || 3;
   c.ap = parseInt(get(/ActivatedProducts=(\d+)/)) || 4095;
+  c.ap32 = parseInt(get(/ActivatedProducts32_39=(\d+)/)) || 0;
   c.fill_level_visible = (get(/FillLevelScreenVisible=(\w+)/) || '').toLowerCase() === 'true';
   c.fill_no_room = get(/FillLevelNoRoomPic=(.+)/) || '';
   c.fill_leave_room = get(/FillLevelLeaveRoomPic=(.+)/) || '';
@@ -256,7 +290,98 @@ function parseIni(text, filename) {
   c.dispensing = {};
   getAll(/DispensingPic\\(\d+)\\Button=(.+)/).forEach(m => { c.dispensing[m[1]] = m[2].trim(); });
 
-  return { name: filename.replace('.ini',''), config: c, images: {} };
+  // Detect hot water products
+  c.hotWater = detectHotWater(c);
+
+  return c;
+}
+
+/* ===== Hot Water Detection ===== */
+function detectHotWater(c) {
+  const hw = { active: false, slots: [] };
+
+  // Check product names for "hot water" or "water"
+  for (let i = 1; i <= 40; i++) {
+    const name = (c.names[String(i)] || '').toLowerCase();
+    const pic = (c.pics[String(i)] || '');
+    const isHW = name.includes('hot water') || name.includes('hotwater');
+    const hasValidPic = pic && pic !== '-----';
+
+    if (isHW) {
+      hw.slots.push(i);
+      hw.active = true;
+    }
+  }
+
+  // Also check ActivatedProducts32_39 for extended product slots with pics
+  if (c.ap32 > 0) {
+    for (let bit = 0; bit < 8; bit++) {
+      if (c.ap32 & (1 << bit)) {
+        const slot = 33 + bit;
+        const pic = c.pics[String(slot)] || '';
+        if (pic && pic !== '-----' && !hw.slots.includes(slot)) {
+          // This slot is active in the 32-39 range
+          const name = c.names[String(slot)] || '';
+          if (name.toLowerCase().includes('water') || !name) {
+            hw.slots.push(slot);
+            hw.active = true;
+          }
+        }
+      }
+    }
+  }
+
+  // Check for hot water based on button pics in extended range (33-40)
+  for (let i = 33; i <= 40; i++) {
+    const pic = (c.pics[String(i)] || '').toLowerCase();
+    const name = (c.names[String(i)] || '').toLowerCase();
+    if ((pic.includes('water') || name.includes('water')) && !hw.slots.includes(i)) {
+      hw.slots.push(i);
+      hw.active = true;
+    }
+  }
+
+  return hw;
+}
+
+/* ===== PPC Recipe Parser ===== */
+const PPC_HEADER = 12;
+const PPC_BLOCK = 132;
+
+function parsePpc(arrayBuffer) {
+  const data = new DataView(arrayBuffer);
+  const recipes = {};
+
+  if (arrayBuffer.byteLength < PPC_HEADER + PPC_BLOCK) return recipes;
+
+  const numBlocks = Math.floor((arrayBuffer.byteLength - PPC_HEADER) / PPC_BLOCK);
+
+  for (let slot = 0; slot < Math.min(numBlocks, 40); slot++) {
+    const offset = PPC_HEADER + slot * PPC_BLOCK;
+
+    // Read u16 values at key offsets within the block
+    // Offset 14 (u16 index 7): Coffee quantity in 1/10 gram
+    // Offset 30 (u16 index 15): Water volume in ml
+    try {
+      const coffeeRaw = data.getUint16(offset + 14, true);
+      const waterMl = data.getUint16(offset + 30, true);
+
+      // Skip empty/unused slots (all zeros or clearly invalid)
+      if (coffeeRaw === 0 && waterMl === 0) continue;
+
+      const coffeeGrams = coffeeRaw / 10;
+
+      // Sanity check: coffee should be 0-50g, water 0-1000ml
+      if (coffeeGrams > 50 || waterMl > 1500) continue;
+
+      recipes[slot + 1] = {
+        coffeeGrams: coffeeGrams,
+        waterMl: waterMl
+      };
+    } catch(e) { /* skip malformed blocks */ }
+  }
+
+  return recipes;
 }
 
 /* ===== File Handling ===== */
@@ -278,25 +403,67 @@ uploadZone.addEventListener('drop', e => {
 
 function handleFiles(files) {
   const fileArr = [...files];
-  // Group .ini files and image files
   const iniFiles = fileArr.filter(f => f.name.toLowerCase().endsWith('.ini'));
+  const ppcFiles = fileArr.filter(f => f.name.toLowerCase().endsWith('.ppc'));
   const imgFiles = fileArr.filter(f => /\.(png|jpg|jpeg)$/i.test(f.name));
+
+  // If only .ppc files uploaded (no .ini), try to add recipes to current config
+  if (iniFiles.length === 0 && ppcFiles.length > 0 && activeIdx >= 0) {
+    ppcFiles.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        configs[activeIdx].recipes = parsePpc(e.target.result);
+        buildPanel();
+        render();
+      };
+      reader.readAsArrayBuffer(f);
+    });
+    return;
+  }
 
   iniFiles.forEach(f => {
     const reader = new FileReader();
     reader.onload = e => {
-      const cfg = parseIni(e.target.result, f.name);
-      // Associate any uploaded images
-      imgFiles.forEach(img => {
+      const config = parseIni(e.target.result, f.name);
+      const cfg = { name: f.name.replace('.ini',''), config: config, recipes: {}, images: {} };
+
+      // Find matching .ppc file
+      const baseName = f.name.replace('.ini','');
+      const matchPpc = ppcFiles.find(p => p.name.replace('.ppc','') === baseName) || ppcFiles[0];
+
+      let ppcDone = !matchPpc;
+      let imgCount = imgFiles.length;
+      let imgDone = imgCount === 0;
+
+      function checkReady() {
+        if (ppcDone && imgDone) addConfig(cfg);
+      }
+
+      if (matchPpc) {
         const r2 = new FileReader();
         r2.onload = ev => {
-          cfg.images[img.name] = ev.target.result;
-          cfg.images[img.name.toLowerCase()] = ev.target.result;
-          if (activeIdx >= 0) render();
+          cfg.recipes = parsePpc(ev.target.result);
+          ppcDone = true;
+          checkReady();
         };
-        r2.readAsDataURL(img);
-      });
-      addConfig(cfg);
+        r2.readAsArrayBuffer(matchPpc);
+      }
+
+      if (imgFiles.length > 0) {
+        let loaded = 0;
+        imgFiles.forEach(img => {
+          const r3 = new FileReader();
+          r3.onload = ev => {
+            cfg.images[img.name] = ev.target.result;
+            cfg.images[img.name.toLowerCase()] = ev.target.result;
+            loaded++;
+            if (loaded >= imgCount) { imgDone = true; checkReady(); }
+          };
+          r3.readAsDataURL(img);
+        });
+      }
+
+      if (!matchPpc && imgFiles.length === 0) addConfig(cfg);
     };
     reader.readAsText(f);
   });
@@ -310,19 +477,34 @@ async function processEntries(entries) {
       allFiles.push({ file, path: path + file.name });
     } else if (entry.isDirectory) {
       const reader = entry.createReader();
-      const entries = await new Promise(r => reader.readEntries(r));
-      for (const e of entries) await readDir(e, path + entry.name + '/');
+      let batch;
+      const allEntries = [];
+      do {
+        batch = await new Promise(r => reader.readEntries(r));
+        allEntries.push(...batch);
+      } while (batch.length > 0);
+      for (const e of allEntries) await readDir(e, path + entry.name + '/');
     }
   }
   for (const entry of entries) await readDir(entry, '');
 
-  // Find .ini files
   const iniFiles = allFiles.filter(f => f.file.name.toLowerCase().endsWith('.ini'));
+  const ppcFiles = allFiles.filter(f => f.file.name.toLowerCase().endsWith('.ppc'));
   const imgFiles = allFiles.filter(f => /\.(png|jpg|jpeg)$/i.test(f.file.name));
 
   for (const ini of iniFiles) {
     const text = await ini.file.text();
-    const cfg = parseIni(text, ini.file.name);
+    const config = parseIni(text, ini.file.name);
+    const cfg = { name: ini.file.name.replace('.ini',''), config: config, recipes: {}, images: {} };
+
+    // Find matching .ppc
+    const baseName = ini.file.name.replace('.ini','');
+    const matchPpc = ppcFiles.find(p => p.file.name.replace('.ppc','') === baseName) || ppcFiles[0];
+
+    if (matchPpc) {
+      const buf = await matchPpc.file.arrayBuffer();
+      cfg.recipes = parsePpc(buf);
+    }
 
     // Load images
     for (const img of imgFiles) {
@@ -380,43 +562,123 @@ function renderConfigBar() {
   bar.innerHTML = h;
 }
 
+/* ===== Recipe Helper ===== */
+function getRecipe(slot) {
+  if (activeIdx < 0) return null;
+  return configs[activeIdx].recipes[slot] || null;
+}
+
+function recipeText(slot) {
+  const r = getRecipe(slot);
+  if (!r) return '';
+  const parts = [];
+  if (r.coffeeGrams > 0) parts.push(r.coffeeGrams.toFixed(1) + 'g coffee');
+  if (r.waterMl > 0) parts.push(r.waterMl + 'ml water');
+  return parts.join(' · ');
+}
+
 /* ===== Panel ===== */
 function buildPanel() {
   if (activeIdx < 0) return;
   const c = configs[activeIdx].config;
+  const recipes = configs[activeIdx].recipes;
+  const hasPpc = Object.keys(recipes).length > 0;
   const ppg = c.ppg;
   const ac = c.ap.toString(2).split('').filter(b => b === '1').length;
   const vg = Object.values(c.groups).filter(g => g.visible).length;
+  const hw = c.hotWater;
 
+  // === Settings ===
   let h = '<div class="panel-section"><h3>Settings</h3><div class="settings-grid">';
   h += setting('PPG', c.ppg);
   h += setting('Active Products', ac);
   h += setting('Visible Groups', vg);
-  h += setting('Fill Level', c.fill_level_visible ? 'ON' : 'OFF');
+  h += setting('Fill Level', c.fill_level_visible ? 'ON' : 'OFF', c.fill_level_visible ? 'on' : 'off');
   h += setting('SCA Version', c.sca_version || '—');
-  h += setting('Iced Group', c.groups['4']?.visible ? 'ON' : 'OFF');
+  h += setting('Iced Group', c.groups['4']?.visible ? 'ON' : 'OFF', c.groups['4']?.visible ? 'on' : 'off');
+  h += setting('Hot Water', hw.active ? 'ON' : 'OFF', hw.active ? 'hw' : 'off');
+  if (hw.active) h += setting('HW Slots', hw.slots.join(', '), 'hw');
+  h += setting('AP Bitmask', c.ap);
+  if (c.ap32 > 0) h += setting('AP 32-39', c.ap32);
+  h += setting('.ppc Recipes', hasPpc ? 'Loaded' : 'None', hasPpc ? 'on' : 'off');
   h += '</div></div>';
 
-  h += '<div class="panel-section"><h3>Product Map</h3><table class="tbl"><tr><th>#</th><th>Name</th><th>Picture</th></tr>';
-  const max = ppg * 3 + 3;
-  for (let i = 1; i <= max; i++) {
+  // === Product Map with Recipes ===
+  h += '<div class="panel-section"><h3>Product Map';
+  if (hasPpc) h += ' <span class="badge badge-on">+ Recipes</span>';
+  h += '</h3><table class="tbl"><tr><th>#</th><th>Name</th><th>Picture</th>';
+  if (hasPpc) h += '<th>Coffee</th><th>Water</th>';
+  h += '</tr>';
+
+  const maxStd = ppg * 3;
+  const maxIced = maxStd + 3;
+
+  // Standard products (groups 1-3)
+  for (let i = 1; i <= maxStd; i++) {
     const nm = c.names[String(i)] || '—';
     const pic = c.pics[String(i)] || '—';
-    const iced = i > ppg * 3;
-    const grp = iced ? 'Ice' : 'G' + Math.ceil(i / ppg);
-
+    const grp = 'G' + Math.ceil(i / ppg);
     let cls = 'pn';
     if (pic !== '—' && pic !== '-----') {
       const m = nm.match(/(\d+)oz/i);
       const sz = m ? m[1] + 'oz' : '';
-      if (sz && !iced) cls = pic.toLowerCase().includes(sz.toLowerCase()) ? 'pn ok' : 'pn bad';
-      else if (iced && pic.toLowerCase().includes('iced')) cls = 'pn ok';
+      if (sz) cls = pic.toLowerCase().includes(sz.toLowerCase()) ? 'pn ok' : 'pn bad';
     }
-    h += '<tr><td class="sl">' + i + ' <span style="color:#444">' + grp + '</span></td><td>' + nm + '</td><td class="' + cls + '">' + pic + '</td></tr>';
+    h += '<tr><td class="sl">' + i + ' <span style="color:#444">' + grp + '</span></td><td>' + nm + '</td><td class="' + cls + '">' + pic + '</td>';
+    if (hasPpc) {
+      const r = recipes[i];
+      h += '<td class="recipe-val">' + (r ? r.coffeeGrams.toFixed(1) + 'g' : '—') + '</td>';
+      h += '<td class="recipe-val">' + (r ? r.waterMl + 'ml' : '—') + '</td>';
+    }
+    h += '</tr>';
   }
-  h += '</table></div>';
 
-  // Groups detail
+  // Iced products
+  for (let i = maxStd + 1; i <= maxIced; i++) {
+    const nm = c.names[String(i)] || '—';
+    const pic = c.pics[String(i)] || '—';
+    let cls = 'pn';
+    if (pic !== '—' && pic !== '-----' && pic.toLowerCase().includes('iced')) cls = 'pn ok';
+    h += '<tr style="background:rgba(100,200,255,0.05)"><td class="sl">' + i + ' <span style="color:#4488aa">Ice</span></td><td>' + nm + '</td><td class="' + cls + '">' + pic + '</td>';
+    if (hasPpc) {
+      const r = recipes[i];
+      h += '<td class="recipe-val">' + (r ? r.coffeeGrams.toFixed(1) + 'g' : '—') + '</td>';
+      h += '<td class="recipe-val">' + (r ? r.waterMl + 'ml' : '—') + '</td>';
+    }
+    h += '</tr>';
+  }
+
+  // Hot water and extended slots (show any active ones in 16-40 range)
+  let extShown = false;
+  for (let i = 16; i <= 40; i++) {
+    if (i > maxIced || i > 15) {
+      const nm = c.names[String(i)] || '';
+      const pic = c.pics[String(i)] || '';
+      const isActive = (pic && pic !== '-----') || nm;
+      const isHW = hw.slots.includes(i);
+      if (isActive || isHW) {
+        if (!extShown) {
+          h += '<tr><td colspan="' + (hasPpc ? 5 : 3) + '" style="color:#555;font-size:0.8em;padding:6px 5px 3px">Extended Slots</td></tr>';
+          extShown = true;
+        }
+        const rowBg = isHW ? 'rgba(251,146,60,0.08)' : 'rgba(0,0,0,0.1)';
+        const label = isHW ? '<span style="color:#fb923c">HW</span>' : '<span style="color:#555">Ext</span>';
+        h += '<tr style="background:' + rowBg + '"><td class="sl">' + i + ' ' + label + '</td><td>' + (nm || '—') + '</td><td class="pn">' + (pic || '—') + '</td>';
+        if (hasPpc) {
+          const r = recipes[i];
+          h += '<td class="recipe-val">' + (r ? r.coffeeGrams.toFixed(1) + 'g' : '—') + '</td>';
+          h += '<td class="recipe-val">' + (r ? r.waterMl + 'ml' : '—') + '</td>';
+        }
+        h += '</tr>';
+      }
+    }
+  }
+
+  h += '</table>';
+  if (!hasPpc) h += '<div class="no-ppc">Upload a .ppc file to see recipe details (coffee grams, water ml)</div>';
+  h += '</div>';
+
+  // === Groups detail ===
   h += '<div class="panel-section"><h3>Groups</h3><table class="tbl"><tr><th>#</th><th>Name</th><th>Visible</th><th>Picture</th></tr>';
   for (let i = 1; i <= 12; i++) {
     const g = c.groups[String(i)];
@@ -430,8 +692,9 @@ function buildPanel() {
   document.getElementById('panel').innerHTML = h;
 }
 
-function setting(label, value) {
-  return '<div class="setting"><div class="lbl">' + label + '</div><div class="val">' + value + '</div></div>';
+function setting(label, value, cls) {
+  const valCls = cls ? 'val ' + cls : 'val';
+  return '<div class="setting"><div class="lbl">' + label + '</div><div class="' + valCls + '">' + value + '</div></div>';
 }
 
 /* ===== Image Resolver ===== */
@@ -447,11 +710,13 @@ function imgTag(filename, cls) {
   return null;
 }
 
-function cupPlaceholder(name, filename, isIced) {
+function cupPlaceholder(name, filename, type) {
   const sz = (name.match(/(\d+)\s*oz/i) || [])[1] || '';
-  const extra = isIced ? ' iced-placeholder' : '';
+  let extra = '';
+  if (type === 'iced') extra = ' iced-placeholder';
+  else if (type === 'hw') extra = ' hw-placeholder';
   return '<div class="cup-placeholder' + extra + '"><div class="size">' +
-    (isIced ? name : (sz ? sz + ' oz' : name)) +
+    (type === 'hw' ? name : (type === 'iced' ? name : (sz ? sz + ' oz' : name))) +
     '</div><div class="filename">' + (filename || '') + '</div></div>';
 }
 
@@ -461,6 +726,8 @@ function render() {
   if (activeIdx < 0) return;
   const S = document.getElementById('screen');
   const c = configs[activeIdx].config;
+  const recipes = configs[activeIdx].recipes;
+  const hasPpc = Object.keys(recipes).length > 0;
 
   const steps = ['start','groups','beverages','fill','dispensing','done'];
   const labels = ['Start','Select Coffee','Select Size','Fill Level','Brewing','Enjoy'];
@@ -483,6 +750,19 @@ function render() {
            (im ? '<div class="grp-name" style="margin-top:4px;font-size:11px">' + (g.name||'') + '</div>' : '') +
            '<div class="grp-img-name">' + pic + '</div></div>';
     }
+
+    // Show Hot Water button if active
+    if (c.hotWater.active) {
+      const hwSlot = c.hotWater.slots[0];
+      const hwName = c.names[String(hwSlot)] || 'Hot Water';
+      const hwPic = c.pics[String(hwSlot)] || '';
+      const hwIm = imgTag(hwPic) || '';
+      h += '<div class="grp-btn hw-btn" onclick="pickHotWater(' + hwSlot + ')">' +
+           (hwIm || '<div class="grp-name" style="color:var(--orange);">' + hwName + '</div>') +
+           (hwIm ? '<div class="grp-name" style="margin-top:4px;font-size:11px;color:var(--orange)">' + hwName + '</div>' : '') +
+           '<div class="grp-img-name">' + hwPic + '</div></div>';
+    }
+
     h += '</div></div>'; S.innerHTML = h;
   }
   else if (scr === 'beverages') {
@@ -497,12 +777,14 @@ function render() {
       const nm = c.names[String(sl)] || 'Product ' + sl;
       const pic = c.pics[String(sl)] || '';
       const im = imgTag(pic);
+      const rt = recipeText(sl);
       h += '<div class="bev-btn" onclick="pickBev(' + sl + ')">' +
            (im ? '<div>' + im + '</div>' : '') +
            '<div class="bev-info">' +
-           (im ? '' : cupPlaceholder(nm, pic, isIced)) +
+           (im ? '' : cupPlaceholder(nm, pic, isIced ? 'iced' : '')) +
            '<div class="bev-name">' + nm + '</div>' +
            '<div class="bev-pic">' + pic + '</div>' +
+           (rt ? '<div class="bev-recipe">' + rt + '</div>' : '') +
            '</div></div>';
     }
     h += '</div></div><div class="back-btn" onclick="goGroups()">&#9664; Back</div>';
@@ -520,7 +802,10 @@ function render() {
   }
   else if (scr === 'dispensing') {
     const pn = c.names[String(selProd)] || '';
-    S.innerHTML = '<div class="scr-disp"><div class="brew-anim">Brewing...</div><div class="brew-product">' + pn + '</div><div class="brew-bar"><div class="brew-fill"></div></div></div>';
+    const rt = recipeText(selProd);
+    S.innerHTML = '<div class="scr-disp"><div class="brew-anim">Brewing...</div><div class="brew-product">' + pn + '</div>' +
+      (rt ? '<div class="brew-recipe">' + rt + '</div>' : '') +
+      '<div class="brew-bar"><div class="brew-fill"></div></div></div>';
     timers.push(setTimeout(() => { scr = 'done'; render(); }, 4000));
   }
   else if (scr === 'done') {
@@ -536,6 +821,11 @@ function goBev() { scr='beverages'; render(); }
 function pickGroup(g) { selGrp=g; scr='beverages'; render(); }
 function pickBev(s) { selProd=s; scr=configs[activeIdx].config.fill_level_visible?'fill':'dispensing'; render(); }
 function goDispense() { scr='dispensing'; render(); }
+function pickHotWater(slot) {
+  selProd = slot;
+  scr = 'dispensing';
+  render();
+}
 </script>
 </body>
 </html>
